@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Contoh Struktur Semantic HTML</title>
+</head>
+<body>
+
+    <!-- 1. HEADER: Bagian atas website -->
+    <header>
+        <h1>DevBlog Indonesia</h1>
+        
+        <!-- 2. NAV: Menu navigasi utama -->
+        <nav>
+            <ul>
+                <li><a href="#home">Home</a></li>
+                <li><li><a href="#blog">Blog</a></li></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- 3. MAIN: Konten utama halaman ini -->
+    <main>
+        
+        <!-- 4. SECTION: Pengelompokan tema (Kumpulan Artikel) -->
+        <section id="blog">
+            <h2>Artikel Terbaru</h2>
+
+            <!-- 5. ARTICLE: Konten mandiri yang bisa berdiri sendiri -->
+            <article>
+                <h3>Belajar HTML Semantic di Tahun 2026</h3>
+                
+                <!-- 6. TIME: Menandakan tanggal rilis artikel secara akurat -->
+                <p>Diterbitkan pada: <time datetime="2026-06-26">26 Juni 2026</time></p>
+                
+                <p>Hari ini kita belajar bahwa menggunakan <mark>tag semantic</mark> jauh lebih baik daripada sekadar menumpuk tag div kosong karena bagus untuk SEO.</p>
+
+                <!-- 7. FIGURE & 8. FIGCAPTION: Media dan penjelasannya -->
+                <figure>
+                    <img src="https://via.placeholder.com/500x250" alt="Skema HTML Semantic">
+                    <figcaption>Gbr 1. Perbandingan struktur div-soup vs semantic HTML.</figcaption>
+                </figure>
+
+                <!-- 9. DETAILS & 10. SUMMARY: Komponen dropdown/accordion bawaan -->
+                <details>
+                    <summary>Klik di sini untuk melihat cheat sheet rangkuman</summary>
+                    <p>Header = Kepala, Nav = Navigasi, Main = Konten Utama, Footer = Kaki Halaman.</p>
+                </details>
+            </article>
+        </section>
+
+        <!-- 11. ASIDE: Konten pelengkap/sidebar di samping konten utama -->
+        <aside>
+            <h3>Tentang Penulis</h3>
+            <p>Seorang web developer yang suka berbagi tutorial coding ringkas dan mudah dipahami.</p>
+            
+            <!-- 12. FORM: Gerbang input data dari user -->
+            <form action="ielfach177@gmail.com" method="POST">
+                <label for="email">Langganan Newsletter:</label>
+                <input type="email" id="email" placeholder="Masukkan email kamu" required>
+                <button type="submit">Gabung</button>
+            </form>
+        </aside>
+
+    </main>
+
+    <!-- 13. FOOTER: Bagian paling bawah halaman -->
+    <footer>
+        <p>&copy; 2026 DevBlog Indonesia. All rights reserved.</p>
+    </footer>
+
+</body>
+</html>
