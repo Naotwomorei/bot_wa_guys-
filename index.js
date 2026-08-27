@@ -24,14 +24,17 @@ async function startBot() {
         }
     });
 
-    // 1. FITUR WELCOME MESSAGE (FORMAT INTRO ANIMATED/AESTHETIC)
+ // 1. FITUR WELCOME MESSAGE (FORMAT INTRO ANIMATED/AESTHETIC)
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
         const targetGroup = '120363426460671438@g.us';
 
         if (id === targetGroup && action === 'add') {
             for (const participant of participants) {
-                const captionText = `@${participant.split('@')[0]} ╭━━━〔 🌸 𝗔.𝗣.𝗔 𝗜𝗡𝗧𝗥𝗢 🌸 〕━━━╮
+                const userJid = typeof participant === 'string' ? participant : (participant.id || participant.jid || '');
+                if (!userJid) continue;
+
+                const captionText = `@${userJid.split('@')[0]} ╭── [ 🌸 A.P.A INTRO 🌸 ] ──
 ✦ 𝑷𝒆𝒓𝒌𝒆𝒏𝒂𝒍𝒂𝒏 𝑨𝒏𝒈𝒈𝒐𝒕𝒂 ✦
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
 
@@ -57,12 +60,12 @@ Semoga betah di keluarga anime ini ♡
                         await sock.sendMessage(id, {
                             image: fs.readFileSync(imagePath),
                             caption: captionText,
-                            mentions: [participant]
+                            mentions: [userJid]
                         });
                     } else {
                         await sock.sendMessage(id, {
                             text: captionText,
-                            mentions: [participant]
+                            mentions: [userJid]
                         });
                     }
                 } catch (err) {
