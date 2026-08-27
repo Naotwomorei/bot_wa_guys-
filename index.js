@@ -96,26 +96,25 @@ Semoga betah di keluarga anime ini ♡
                     text: `⏳ *[${platform} Downloader]*\nSedang mengunduh media, tunggu sebentar ya...` 
                 }, { quoted: msg });
 
-                const apiUrl = `https://api.cobalt.tools/api/json`;
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ url: text.trim() })
-                });
+                // Menggunakan API AIO Downloader alternatif
+                const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
+                if (!cleanUrl) return;
 
+                const apiUrl = `https://api.vkrdown.com/v2/download?url=${encodeURIComponent(cleanUrl)}`;
+                const response = await fetch(apiUrl);
                 const data = await response.json();
 
-                if (data && data.url) {
+                // Ambil link download video berformat MP4/best quality
+                const downloadUrl = data?.data?.downloads?.find(item => item.extension === 'mp4')?.url || data?.data?.downloads?.[0]?.url;
+
+                if (downloadUrl) {
                     await sock.sendMessage(from, {
-                        video: { url: data.url },
+                        video: { url: downloadUrl },
                         caption: `✅ Berhasil diunduh dari *${platform}*!`
                     }, { quoted: msg });
                 } else {
                     await sock.sendMessage(from, { 
-                        text: `❌ Gagal mengambil media dari ${platform}. Pastikan akun/postingan tidak di-private.` 
+                        text: `❌ Gagal mengambil media dari ${platform}. Pastikan link valid dan tidak diprivat.` 
                     }, { quoted: msg });
                 }
             }
