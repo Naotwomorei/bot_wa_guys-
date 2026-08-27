@@ -24,9 +24,7 @@ async function startBot() {
         }
     });
 
-    // ==========================================
-    // 1. FITUR WELCOME MESSAGE (FORMAT INTRO)
-    // ==========================================
+    // 1. FITUR WELCOME MESSAGE (FORMAT INTRO ANIMATED/AESTHETIC)
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
         const targetGroup = '120363426460671438@g.us';
@@ -74,9 +72,7 @@ Semoga betah di keluarga anime ini ♡
         }
     });
 
-    // ==========================================
-    // 2. FITUR DOWNLOADER (TIKTOK, IG, YOUTUBE)
-    // ==========================================
+    // 2. FITUR DOWNLOADER MULTI-PLATFORM STABIL
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             const msg = messages[0];
@@ -84,38 +80,49 @@ Semoga betah di keluarga anime ini ♡
 
             const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
             const from = msg.key.remoteJid;
+            const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
 
-            const isTiktok = text.includes('tiktok.com');
-            const isInstagram = text.includes('instagram.com');
-            const isYoutube = text.includes('youtube.com') || text.includes('youtu.be');
+            if (!cleanUrl) return;
 
-            if (isTiktok || isInstagram || isYoutube) {
-                const platform = isTiktok ? 'TikTok' : isInstagram ? 'Instagram' : 'YouTube';
-                
-                await sock.sendMessage(from, { 
-                    text: `⏳ *[${platform} Downloader]*\nSedang mengunduh media, tunggu sebentar ya...` 
-                }, { quoted: msg });
+            // A. DOWNLOADER TIKTOK (TikWM API)
+            if (cleanUrl.includes('tiktok.com')) {
+                await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]*\nSedang mengunduh video...' }, { quoted: msg });
+                const res = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`);
+                const json = await res.json();
 
-                // Menggunakan API AIO Downloader alternatif
-                const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
-                if (!cleanUrl) return;
+                if (json.data && json.data.play) {
+                    await sock.sendMessage(from, {
+                        video: { url: json.data.play },
+                        caption: `✅ *${json.data.title || 'TikTok Video'}*`
+                    }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { text: '❌ Gagal mengunduh video TikTok.' }, { quoted: msg });
+                }
+            }
 
-                const apiUrl = `https://api.vkrdown.com/v2/download?url=${encodeURIComponent(cleanUrl)}`;
-                const response = await fetch(apiUrl);
+            // B. DOWNLOADER INSTAGRAM & YOUTUBE (Cobalt API)
+            else if (cleanUrl.includes('instagram.com') || cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
+                const platform = cleanUrl.includes('instagram.com') ? 'Instagram' : 'YouTube';
+                await sock.sendMessage(from, { text: `⏳ *[${platform} Downloader]*\nSedang memproses media...` }, { quoted: msg });
+
+                const response = await fetch('https://api.cobalt.tools/api/json', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: cleanUrl })
+                });
+
                 const data = await response.json();
 
-                // Ambil link download video berformat MP4/best quality
-                const downloadUrl = data?.data?.downloads?.find(item => item.extension === 'mp4')?.url || data?.data?.downloads?.[0]?.url;
-
-                if (downloadUrl) {
+                if (data && data.url) {
                     await sock.sendMessage(from, {
-                        video: { url: downloadUrl },
+                        video: { url: data.url },
                         caption: `✅ Berhasil diunduh dari *${platform}*!`
                     }, { quoted: msg });
                 } else {
-                    await sock.sendMessage(from, { 
-                        text: `❌ Gagal mengambil media dari ${platform}. Pastikan link valid dan tidak diprivat.` 
-                    }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `❌ Gagal mengambil media dari ${platform}.` }, { quoted: msg });
                 }
             }
         } catch (err) {
