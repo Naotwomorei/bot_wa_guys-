@@ -1,26 +1,12 @@
-const {
-    default: makeWASocket,
-    useMultiFileAuthState,
-    DisconnectReason,
-    fetchLatestBaileysVersion
-} = require('@whiskeysockets/baileys');
-const qrcodeTerminal = require('qrcode-terminal');
-const QRCode = require('qrcode');
+const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 
-// 📌 ID GRUP ASOSIASI PEMBURU ANIME
-const ALLOWED_GROUPS = [
-    '120363426460671438@g.us'
-];
-
-async function connectToWhatsApp() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info');
-    const { version } = await fetchLatestBaileysVersion();
-
+async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
+    
     const sock = makeWASocket({
-        version,
         auth: state,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false
@@ -28,47 +14,26 @@ async function connectToWhatsApp() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-
-        if (qr) {
-            console.log('\n=============================================');
-            console.log('QR Code baru dibuat! Buka qr.png untuk scan.');
-            console.log('=============================================\n');
-            await QRCode.toFile('./qr.png', qr);
-            qrcodeTerminal.generate(qr, { small: true });
-        }
-
-        if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
-                connectToWhatsApp();
-            }
-        } else if (connection === 'open') {
-            console.log('\n=============================================');
-            console.log(' BOT BERHASIL TERHUBUNG & AKTIF!');
-            console.log('=============================================\n');
-            if (fs.existsSync('./qr.png')) {
-                fs.unlinkSync('./qr.png');
-            }
+    sock.ev.on('connection.update', (update) => {
+        const { connection } = update;
+        if (connection === 'open') {
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF!');
+        } else if (connection === 'close') {
+            console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
+            startBot();
         }
     });
 
-    // EVENT: Sambutan Anggota Baru
+    // ==========================================
+    // 1. FITUR WELCOME MESSAGE (FORMAT INTRO)
+    // ==========================================
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
+        const targetGroup = '120363426460671438@g.us';
 
-        if (!ALLOWED_GROUPS.includes(id)) {
-            return;
-        }
-
-        if (action === 'add') {
-            for (const item of participants) {
-                const userJid = typeof item === 'string' ? item : (item.phoneNumber || item.id || String(item));
-                const userPhone = userJid.split('@')[0];
-
-                const welcomeText = 
-`@${userPhone} ╭━━━〔 🌸 𝗔.𝗣.𝗔 𝗜𝗡𝗧𝗥𝗢 🌸 〕━━━╮
+        if (id === targetGroup && action === 'add') {
+            for (const participant of participants) {
+                const captionText = `@${participant.split('@')[0]} ╭━━━〔 🌸 𝗔.𝗣.𝗔 𝗜𝗡𝗧𝗥𝗢 🌸 〕━━━╮
 ✦ 𝑷𝒆𝒓𝒌𝒆𝒏𝒂𝒍𝒂𝒏 𝑨𝒏𝒈𝒈𝒐𝒕𝒂 ✦
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
 
@@ -79,34 +44,85 @@ async function connectToWhatsApp() {
 ୨୧ Waifu / Husbu : 
 
 ╭─────────── ✦ ───────────╮
-🎌 𝗦𝗮𝗹𝗮𝗺 𝗞𝗲𝗻𝗮 🎌
+🎌 𝗦𝗮𝗹𝗮𝗺 𝗞𝗲𝗻𝗮𝗹! 🎌
 Semoga betah di keluarga anime ini ♡
 ╰─────────── ✦ ───────────╯
 
 𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃
-🌸 𝗬𝗼𝗿𝗼𝘀𝗵𝗶𝗸𝘂 𝗢𝗻𝗲𝗴𝗮𝗶𝘀𝗵𝗶𝗺𝒂𝘀𝘂! 🌸
+🌸 𝗬𝗼𝗿𝗼𝘀𝗵𝗶𝗸𝘂 𝗢𝗻𝗲𝗴𝗮𝗶𝘀𝗵𝗶𝗺𝗮𝘀𝘂! 🌸
 𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃`;
 
-                // 🖼️ Membaca gambar.jpeg dari folder lokal
                 const imagePath = path.join(__dirname, 'gambar.jpeg');
 
-                if (fs.existsSync(imagePath)) {
-                    await sock.sendMessage(id, {
-                        image: fs.readFileSync(imagePath),
-                        caption: welcomeText,
-                        mentions: [userJid]
-                    });
-                } else {
-                    await sock.sendMessage(id, {
-                        text: welcomeText,
-                        mentions: [userJid]
-                    });
+                try {
+                    if (fs.existsSync(imagePath)) {
+                        await sock.sendMessage(id, {
+                            image: fs.readFileSync(imagePath),
+                            caption: captionText,
+                            mentions: [participant]
+                        });
+                    } else {
+                        await sock.sendMessage(id, {
+                            text: captionText,
+                            mentions: [participant]
+                        });
+                    }
+                } catch (err) {
+                    console.error('Gagal mengirim pesan welcome:', err);
                 }
-
-                console.log(`[BERHASIL] Sambutan foto Rem terkirim ke @${userPhone}`);
             }
+        }
+    });
+
+    // ==========================================
+    // 2. FITUR DOWNLOADER (TIKTOK, IG, YOUTUBE)
+    // ==========================================
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        try {
+            const msg = messages[0];
+            if (!msg.message || msg.key.fromMe) return;
+
+            const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+            const from = msg.key.remoteJid;
+
+            const isTiktok = text.includes('tiktok.com');
+            const isInstagram = text.includes('instagram.com');
+            const isYoutube = text.includes('youtube.com') || text.includes('youtu.be');
+
+            if (isTiktok || isInstagram || isYoutube) {
+                const platform = isTiktok ? 'TikTok' : isInstagram ? 'Instagram' : 'YouTube';
+                
+                await sock.sendMessage(from, { 
+                    text: `⏳ *[${platform} Downloader]*\nSedang mengunduh media, tunggu sebentar ya...` 
+                }, { quoted: msg });
+
+                const apiUrl = `https://api.cobalt.tools/api/json`;
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: text.trim() })
+                });
+
+                const data = await response.json();
+
+                if (data && data.url) {
+                    await sock.sendMessage(from, {
+                        video: { url: data.url },
+                        caption: `✅ Berhasil diunduh dari *${platform}*!`
+                    }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(from, { 
+                        text: `❌ Gagal mengambil media dari ${platform}. Pastikan akun/postingan tidak di-private.` 
+                    }, { quoted: msg });
+                }
+            }
+        } catch (err) {
+            console.error('Error Downloader:', err);
         }
     });
 }
 
-connectToWhatsApp();
+startBot();
