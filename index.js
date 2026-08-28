@@ -217,7 +217,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     const systemPrompt = "Kamu adalah asisten AI di grup WhatsApp anak sekolah dan mahasiswa. Jawablah pertanyaan berikut dengan akurat dan pintar, namun gunakan bahasa gaul Gen Z Indonesia yang santai, akrab, pakai kata lu-gue/bro, sedikit humor tongkrongan kampus, tapi tetap informatif.";
 
                     // Menggunakan model gemini-2.5-flash terbaru yang stabil
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
