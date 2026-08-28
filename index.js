@@ -216,7 +216,8 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     // Prompt agar Gemini menjawab pintar sekaligus pakai gaya bahasa gaul Gen Z
                     const systemPrompt = "Kamu adalah asisten AI di grup WhatsApp anak sekolah dan mahasiswa. Jawablah pertanyaan berikut dengan akurat dan pintar, namun gunakan bahasa gaul Gen Z Indonesia yang santai, akrab, pakai kata lu-gue/bro, sedikit humor tongkrongan kampus, tapi tetap informatif.";
 
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                    // Menggunakan model gemini-2.5-flash terbaru yang stabil
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -227,6 +228,13 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     });
 
                     const data = await response.json();
+                    
+                    if (data.error) {
+                        console.error('Error dari Google API:', data.error);
+                        await sock.sendMessage(from, { text: `⚠️ AI Error: ${data.error.message}` }, { quoted: msg });
+                        return;
+                    }
+
                     let jawabanGemini = data.candidates?.[0]?.content?.parts?.[0]?.text || "Duh, otak gua lagi konslet, coba lagi nanti ya!";
 
                     const balasanFinal = `🤖 *[META AI - GEN Z]*\n\n${jawabanGemini}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
