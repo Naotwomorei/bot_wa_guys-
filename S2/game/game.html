@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Cyber Quiz Racer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; }
+    body {
+      background: #0d0d15;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #gameContainer {
+      position: relative;
+      box-shadow: 0 0 30px rgba(0, 243, 255, 0.3);
+      border-radius: 10px;
+      overflow: hidden;
+      max-width: 100vw;
+    }
+    canvas {
+      display: block;
+      background: #12121c;
+      max-width: 100vw;
+      max-height: 70vh;
+    }
+    .ui-layer {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(13, 13, 21, 0.9);
+      backdrop-filter: blur(5px);
+      padding: 20px;
+      text-align: center;
+    }
+    h1 { font-size: 26px; color: #00f3ff; text-shadow: 0 0 10px #00f3ff; margin-bottom: 10px; }
+    p { font-size: 14px; color: #aaa; margin-bottom: 20px; }
+    button {
+      padding: 12px 25px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #0d0d15;
+      background: #a3e635;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 0 15px #a3e635;
+      transition: all 0.2s;
+      margin: 5px;
+      width: 80%;
+    }
+    
+    /* STYLING KONTROL TOMBOL HP */
+    .mobile-controls {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 400px;
+      padding: 10px 20px;
+      background: #0d0d15;
+    }
+    .btn-touch {
+      width: 45%;
+      height: 60px;
+      font-size: 24px;
+      background: #1e1e2c;
+      color: #00f3ff;
+      border: 2px solid #00f3ff;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+      user-select: none;
+    }
+    .btn-touch:active {
+      background: #00f3ff;
+      color: #0d0d15;
+    }
+
+    .quiz-options { display: flex; flex-direction: column; width: 100%; max-width: 320px; }
+    .btn-opt { background: #1e1e2c; color: #fff; border: 1px solid #00f3ff; box-shadow: none; text-align: left; padding: 10px 15px; }
+  </style>
+</head>
+<body>
+
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="400" height="550"></canvas>
+    
+    <div id="uiOverlay" class="ui-layer">
+      <h1 id="uiTitle">CYBER QUIZ RACER</h1>
+      <p id="uiSub">Setir mobil & jawab soal setiap 15 detik!</p>
+      <button id="startBtn" onclick="startGame()">MAIN SEKARANG</button>
+    </div>
+
+    <div id="quizOverlay" class="ui-layer" style="display: none;">
+      <h2 style="color: #ffcc00; margin-bottom: 10px;">⚡ SOAL TANTANGAN ⚡</h2>
+      <p id="quizQuestion" style="font-size: 16px; color: #fff; font-weight: bold; margin-bottom: 15px;">Soal akan muncul di sini</p>
+      <div class="quiz-options" id="quizOptions"></div>
+    </div>
+  </div>
+
+  <!-- TOMBOL KONTROL HP (KIRI & KANAN) -->
+  <div class="mobile-controls">
+    <button class="btn-touch" id="btnLeft">◄ KIRI</button>
+    <button class="btn-touch" id="btnRight">KANAN ►</button>
+  </div>
+
+  <script>
+    const daftarSoal = [
+      { soal: "1. Warna primer dalam desain adalah?", opsi: ["Merah, Hijau, Biru", "Merah, Kuning, Biru", "Hitam, Putih, Abu", "Pink, Cokelat, Ungu"], jawaban: 1 },
+      { soal: "2. Aplikasi video editing buatan Adobe adalah?", opsi: ["Photoshop", "Premiere Pro", "CorelDraw", "Lightroom"], jawaban: 1 },
+      { soal: "3. Berapa rasio standar video TikTok/Reels?", opsi: ["16:9", "4:3", "1:1", "9:16"], jawaban: 3 }
+    ];
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const uiOverlay = document.getElementById('uiOverlay');
+    const uiTitle = document.getElementById('uiTitle');
+    const uiSub = document.getElementById('uiSub');
+    const startBtn = document.getElementById('startBtn');
+    
+    const quizOverlay = document.getElementById('quizOverlay');
+    const quizQuestion = document.getElementById('quizQuestion');
+    const quizOptions = document.getElementById('quizOptions');
+
+    let isPlaying = false, isQuizActive = false, score = 0, speed = 5, roadOffset = 0, timerQuiz = 0;
+    const player = { x: 180, y: 430, width: 40, height: 70, color: '#00f3ff', speed: 7 };
+    const keys = { Left: false, Right: false };
+
+    // KONTROL KEYBOARD (LAPTOP)
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.Left = true;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.Right = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.Left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.Right = false;
+    });
+
+    // KONTROL TOUCH (SENTUH HP)
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+
+    btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.Left = true; });
+    btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys.Left = false; });
+    btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.Right = true; });
+    btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys.Right = false; });
+
+    btnLeft.addEventListener('mousedown', () => keys.Left = true);
+    btnLeft.addEventListener('mouseup', () => keys.Left = false);
+    btnRight.addEventListener('mousedown', () => keys.Right = true);
+    btnRight.addEventListener('mouseup', () => keys.Right = false);
+
+    let enemies = [];
+    const enemyColors = ['#ff0055', '#ffcc00', '#ff00ff', '#00ff66'];
+
+    function spawnEnemy() {
+      const lane = Math.floor(Math.random() * 3);
+      const xPos = 50 + (lane * 100) + 30;
+      enemies.push({ x: xPos, y: -80, width: 40, height: 70, color: enemyColors[Math.floor(Math.random() * enemyColors.length)], speed: speed + Math.random() * 2 });
+    }
+
+    function startGame() {
+      uiOverlay.style.display = 'none';
+      quizOverlay.style.display = 'none';
+      isPlaying = true; isQuizActive = false; score = 0; speed = 6; timerQuiz = 0; player.x = 180; enemies = [];
+      gameLoop();
+    }
+
+    function gameOver(alasan) {
+      isPlaying = false; isQuizActive = false;
+      quizOverlay.style.display = 'none';
+      uiOverlay.style.display = 'flex';
+      uiTitle.innerText = "GAME OVER!";
+      uiTitle.style.color = "#ff0055";
+      uiSub.innerText = `${alasan}\nSkor Akhir: ${Math.floor(score)}`;
+      startBtn.innerText = "COBA LAGI";
+    }
+
+    function showQuiz() {
+      isQuizActive = true;
+      quizOverlay.style.display = 'flex';
+      const quiz = daftarSoal[Math.floor(Math.random() * daftarSoal.length)];
+      quizQuestion.innerText = quiz.soal;
+      quizOptions.innerHTML = '';
+      quiz.opsi.forEach((optionText, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-opt';
+        btn.innerText = optionText;
+        btn.onclick = () => checkAnswer(idx, quiz.jawaban);
+        quizOptions.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(selectedIndex, correctIndex) {
+      if (selectedIndex === correctIndex) {
+        score += 50; timerQuiz = 0; isQuizActive = false; quizOverlay.style.display = 'none';
+        requestAnimationFrame(gameLoop);
+      } else {
+        gameOver("Jawaban kamu Salah!");
+      }
+    }
+
+    function drawCar(x, y, width, height, color) {
+      ctx.fillStyle = color; ctx.shadowBlur = 15; ctx.shadowColor = color;
+      ctx.fillRect(x, y, width, height);
+      ctx.fillStyle = '#0d0d15'; ctx.fillRect(x + 5, y + 15, width - 10, 15);
+      ctx.fillStyle = '#fff'; ctx.fillRect(x + 4, y + 2, 8, 4); ctx.fillRect(x + width - 12, y + 2, 8, 4);
+      ctx.shadowBlur = 0;
+    }
+
+    function gameLoop() {
+      if (!isPlaying || isQuizActive) return;
+
+      timerQuiz += 1 / 60;
+      if (timerQuiz >= 15) { showQuiz(); return; }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      roadOffset += speed;
+      if (roadOffset >= 40) roadOffset = 0;
+
+      ctx.fillStyle = '#1e1e2c'; ctx.fillRect(40, 0, 320, canvas.height);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; ctx.lineWidth = 4; ctx.setLineDash([20, 20]); ctx.lineDashOffset = -roadOffset;
+      ctx.beginPath(); ctx.moveTo(146, 0); ctx.lineTo(146, canvas.height); ctx.moveTo(253, 0); ctx.lineTo(253, canvas.height); ctx.stroke();
+
+      if (keys.Left && player.x > 50) player.x -= player.speed;
+      if (keys.Right && player.x < 310) player.x += player.speed;
+
+      drawCar(player.x, player.y, player.width, player.height, player.color);
+
+      if (Math.random() < 0.03 && enemies.length < 4) {
+        const lastEnemy = enemies[enemies.length - 1];
+        if (!lastEnemy || lastEnemy.y > 150) spawnEnemy();
+      }
+
+      for (let i = 0; i < enemies.length; i++) {
+        let e = enemies[i]; e.y += e.speed;
+        drawCar(e.x, e.y, e.width, e.height, e.color);
+
+        if (player.x < e.x + e.width && player.x + player.width > e.x && player.y < e.y + e.height && player.y + player.height > e.y) {
+          gameOver("Mobil kamu menabrak!"); return;
+        }
+
+        if (e.y > canvas.height) { enemies.splice(i, 1); i--; score += 10; }
+      }
+
+      score += 0.05;
+      const sisaWaktu = Math.ceil(15 - timerQuiz);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Segoe UI';
+      ctx.fillText(`SKOR: ${Math.floor(score)}`, 50, 30);
+      ctx.fillStyle = sisaWaktu <= 3 ? '#ff0055' : '#a3e635';
+      ctx.fillText(`SOAL: ${sisaWaktu}s`, 250, 30);
+
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>

@@ -22,6 +22,9 @@ function saveDB() {
     fs.writeFileSync(DB_FILE, JSON.stringify(userDB, null, 2));
 }
 
+// Memory / Objek Sementara untuk Menyimpan Waktu Chat Terakhir (Cooldown 3 Detik)
+const cooldownXP = {};
+
 // =========================================================================
 // 🎮 LOGIKA EFEK LEVELING & XP
 // =========================================================================
@@ -64,7 +67,7 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection } = update;
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (WITH LEADERBOARD)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (WITH ANTI-SPAM COOLDOWN & STICKER FILTER)!');
         } else if (connection === 'close') {
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
             startBot();
@@ -97,7 +100,7 @@ async function startBot() {
 Semoga betah di keluarga anime ini ♡
 ╰─────────── ✦ ───────────╯
 
-🌸 𝗬𝗼𝗿𝗼𝘀𝗵𝗶 𝗢𝗻𝒆𝗴𝗮𝗶𝘀𝗵𝗶𝗺𝗮𝘀𝒖! 🌸`;
+🌸 𝗬𝗼𝗿𝗼𝘀𝗵𝗶 𝗢𝗻𝗲𝗴𝗮𝗶𝘀𝗵𝗶𝗺𝗮𝘀𝘂! 🌸`;
 
                 const imagePath = path.join(__dirname, 'gambar.jpeg');
 
@@ -135,6 +138,10 @@ Semoga betah di keluarga anime ini ♡
             // 🔒 FILTER UTAMA: Hanya proses jika berasal dari Grup Target!
             if (from !== TARGET_GROUP) return;
 
+            // 🚫 FILTER 1: Jika pesan berupa Stiker, abaikan perhitungan XP (langsung return/stop)
+            const isSticker = msg.message.stickerMessage;
+            if (isSticker) return;
+
             const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
             const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
 
@@ -156,17 +163,15 @@ Semoga betah di keluarga anime ini ♡
                 text.toLowerCase() === '.top' || 
                 text.toLowerCase() === '!leaderboard'
             ) {
-                // Urutkan Pengguna Berdasarkan Level Tertinggi -> XP Terbanyak
                 const sortedUsers = Object.keys(userDB).map(jid => {
                     return { jid, ...userDB[jid] };
                 }).sort((a, b) => {
                     if (b.level === a.level) {
-                        return b.xp - a.xp; // Jika level sama, bandingkan sisa XP
+                        return b.xp - a.xp;
                     }
-                    return b.level - a.level; // Utamakan level tertinggi
+                    return b.level - a.level;
                 });
 
-                // Ambil 5 Teratas
                 const top5 = sortedUsers.slice(0, 5);
                 
                 if (top5.length === 0) {
@@ -265,7 +270,24 @@ Semoga betah di keluarga anime ini ♡
                 return;
             }
 
-            // E. PENAMBAHAN XP CHAT BIASA (+10 XP)
+            // =========================================================================
+            // ⏳ E. FILTER 2: COOLDOWN 3 DETIK UNTUK PENAMBAHAN XP CHAT BIASA (+10 XP)
+            // =========================================================================
+            const now = Date.now();
+            const cooldownTime = 3000; // 3000 milidetik = 3 detik
+
+            if (cooldownXP[userJid]) {
+                const selisihWaktu = now - cooldownXP[userJid];
+                if (selisihWaktu < cooldownTime) {
+                    // Jika belum lewat 3 detik sejak chat terakhir, jangan tambahkan XP
+                    return;
+                }
+            }
+
+            // Perbarui waktu chat terakhir user ini
+            cooldownXP[userJid] = now;
+
+            // Tambahkan XP karena sudah melewati jeda 3 detik
             await tambahXP(sock, from, userJid, 10, msg);
 
         } catch (err) {

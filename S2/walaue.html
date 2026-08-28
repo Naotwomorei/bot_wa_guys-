@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Custom OBS Overlay</title>
+  <style>
+    /* 1. MENGELIMINASI BACKGROUND (Biar Transparan di OBS) */
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: transparent; /* PENTING: Supaya background transparan */
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+    }
+
+    /* 2. CONTAINER BANNER */
+    .banner-container {
+      position: absolute;
+      top: 30px;
+      left: 30px;
+      display: flex;
+      align-items: center;
+      background: rgba(20, 46, 35, 0.85); /* Warna background gelap dengan efek transparan */
+      border: 2px solid #A3E635; /* Akses garis hijau menyala */
+      border-radius: 12px;
+      padding: 10px 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px); /* Efek kaca buram (frosted glass) */
+      color: white;
+      min-width: 320px;
+    }
+
+    /* 3. INDIKATOR LIVE / DOT */
+    .dot-live {
+      width: 12px;
+      height: 12px;
+      background-color: #A3E635;
+      border-radius: 50%;
+      margin-right: 15px;
+      box-shadow: 0 0 10px #A3E635;
+      animation: kedip 1.5s infinite;
+    }
+
+    /* 4. ANIMASI KEDIP */
+    @keyframes kedip {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.8); }
+    }
+
+    /* 5. TEKS ANNOUNCEMENT */
+    .text-box {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #A3E635;
+      font-weight: bold;
+    }
+
+    .content {
+      font-size: 15px;
+      font-weight: 600;
+      margin-top: 2px;
+      transition: opacity 0.5s ease-in-out;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="banner-container">
+    <div class="dot-live"></div>
+    <div class="text-box">
+      <div id="bannerLabel" class="label">STREAM INFO</div>
+      <div id="bannerContent" class="content">Selamat Datang di Live Stream! 🚀</div>
+    </div>
+  </div>
+
+  <script>
+    // Daftar Teks Berjalan / Informasi yang Akan Berubah Otomatis
+    const infoList = [
+      { label: "SOCIAL MEDIA", text: "Follow IG & TikTok untuk konten editing menarik!" },
+      { label: "SUPPORT STREAM", text: "Dukung stream via Saweria: saweria.co/..." },
+      { label: "EDITING PRESET", text: "Dapatkan Lightroom & CapCut Preset terbaru gratis!" },
+      { label: "EDITING STREAM", text: "Sedang live editing Lightroom & Video Reel!" }
+    ];
+
+    let currentIndex = 0;
+    const labelEl = document.getElementById('bannerLabel');
+    const contentEl = document.getElementById('bannerContent');
+
+    // Berganti teks setiap 6 detik sekali dengan efek memudar (fade)
+    setInterval(() => {
+      // Efek Fade Out
+      contentEl.style.opacity = 0;
+      labelEl.style.opacity = 0;
+
+      setTimeout(() => {
+        currentIndex = (currentIndex + 1) % infoList.length;
+        labelEl.innerText = infoList[currentIndex].label;
+        contentEl.innerText = infoList[currentIndex].text;
+
+        // Efek Fade In
+        contentEl.style.opacity = 1;
+        labelEl.style.opacity = 1;
+      }, 500); // Tunggu 0.5 detik saat memudar
+
+    }, 6000); // Ganti teks tiap 6000ms (6 detik)
+  </script>
+
+</body>
+</html>
