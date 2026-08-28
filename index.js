@@ -4,9 +4,51 @@ const fs = require('fs');
 const path = require('path');
 
 // =========================================================================
-// 📌 CONFIGURASI TARGET GRUP
+// 📌 KONFIGURASI TARGET GRUP & DATABASE LEVELING
 // =========================================================================
 const TARGET_GROUP = '120363426460671438@g.us'; // ID Grup Khusus Kamu
+const DB_FILE = './database_leveling.json';
+
+// Baca atau Buat Database JSON Otomatis
+let userDB = {};
+if (fs.existsSync(DB_FILE)) {
+    userDB = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+} else {
+    fs.writeFileSync(DB_FILE, JSON.stringify({}, null, 2));
+}
+
+// Fungsi Simpan Data ke File JSON
+function saveDB() {
+    fs.writeFileSync(DB_FILE, JSON.stringify(userDB, null, 2));
+}
+
+// =========================================================================
+// 🎮 LOGIKA EFEK LEVELING & XP
+// =========================================================================
+async function tambahXP(sock, from, userJid, jumlahXP, quotedMsg) {
+    if (!userDB[userJid]) {
+        userDB[userJid] = { xp: 0, level: 1 };
+    }
+
+    userDB[userJid].xp += jumlahXP;
+    let xpDibutuhkan = userDB[userJid].level * 100;
+
+    // Cek Apakah Pengguna Level Up!
+    if (userDB[userJid].xp >= xpDibutuhkan) {
+        userDB[userJid].level += 1;
+        userDB[userJid].xp -= xpDibutuhkan;
+
+        const userTag = userJid.split('@')[0];
+        const pesanLevelUp = `🎉 *LEVEL UP!* 🎉\n\nSelamat @${userTag}! 🥳\nLevel kamu naik menjadi: *Level ${userDB[userJid].level}*\n\nTerus aktif di grup buat naikin level lagi! 🚀`;
+
+        await sock.sendMessage(from, {
+            text: pesanLevelUp,
+            mentions: [userJid]
+        }, { quoted: quotedMsg });
+    }
+
+    saveDB();
+}
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
@@ -22,7 +64,7 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection } = update;
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (WITH LEADERBOARD)!');
         } else if (connection === 'close') {
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
             startBot();
@@ -30,12 +72,11 @@ async function startBot() {
     });
 
     // =========================================================================
-    // 1. FITUR WELCOME MESSAGE (TETAP KHUSUS GRUP TARGET)
+    // 1. FITUR WELCOME MESSAGE
     // =========================================================================
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
 
-        // FILTER: Hanya jalan di Grup Target & saat ada anggota baru
         if (id === TARGET_GROUP && action === 'add') {
             for (const participant of participants) {
                 const userJid = typeof participant === 'string' ? participant : (participant.id || participant.jid || '');
@@ -56,9 +97,7 @@ async function startBot() {
 Semoga betah di keluarga anime ini ♡
 ╰─────────── ✦ ───────────╯
 
-𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃
-🌸 𝗬𝗼𝗿𝗼𝘀𝗵𝗶𝗸𝘂 𝗢𝗻𝗲𝗴𝗮𝗶𝘀𝗵𝗶𝗺𝗮𝘀𝘂! 🌸
-𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃`;
+🌸 𝗬𝗼𝗿𝗼𝘀𝗵𝗶 𝗢𝗻𝒆𝗴𝗮𝗶𝘀𝗵𝗶𝗺𝗮𝘀𝒖! 🌸`;
 
                 const imagePath = path.join(__dirname, 'gambar.jpeg');
 
@@ -83,7 +122,7 @@ Semoga betah di keluarga anime ini ♡
     });
 
     // =========================================================================
-    // 2. FITUR DOWNLOADER MULTI-MEDIA (KHUSUS GRUP TARGET)
+    // 2. FITUR AUTO XP, LEADERBOARD, & MULTI-DOWNLOADER
     // =========================================================================
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
@@ -91,48 +130,102 @@ Semoga betah di keluarga anime ini ♡
             if (!msg.message || msg.key.fromMe) return;
 
             const from = msg.key.remoteJid;
+            const userJid = msg.key.participant || msg.key.remoteJid;
 
-            // 🔒 FILTER UTAMA: LGSG STOP JIKA PESAN BUKAN DARI GRUP TARGET!
+            // 🔒 FILTER UTAMA: Hanya proses jika berasal dari Grup Target!
             if (from !== TARGET_GROUP) return;
 
             const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
             const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
 
-            if (!cleanUrl) return;
+            // A. COMMAND CEK LEVEL PRIBADI (!level / .level)
+            if (text.toLowerCase() === '!level' || text.toLowerCase() === '.level') {
+                const userData = userDB[userJid] || { xp: 0, level: 1 };
+                const targetXP = userData.level * 100;
+                const userTag = userJid.split('@')[0];
 
-            // A. DOWNLOADER TIKTOK (TikWM API)
-            if (cleanUrl.includes('tiktok.com')) {
+                const statusLevel = `📊 *INFORMASI LEVEL PENGGUNA*\n\n👤 Pengguna: @${userTag}\n⭐ Level Saat Ini: *${userData.level}*\n⚡ Total XP: *${userData.xp} / ${targetXP} XP*`;
+
+                await sock.sendMessage(from, { text: statusLevel, mentions: [userJid] }, { quoted: msg });
+                return;
+            }
+
+            // B. COMMAND LEADERBOARD TOP LEVEL (!top / !leaderboard)
+            if (
+                text.toLowerCase() === '!top' || 
+                text.toLowerCase() === '.top' || 
+                text.toLowerCase() === '!leaderboard'
+            ) {
+                // Urutkan Pengguna Berdasarkan Level Tertinggi -> XP Terbanyak
+                const sortedUsers = Object.keys(userDB).map(jid => {
+                    return { jid, ...userDB[jid] };
+                }).sort((a, b) => {
+                    if (b.level === a.level) {
+                        return b.xp - a.xp; // Jika level sama, bandingkan sisa XP
+                    }
+                    return b.level - a.level; // Utamakan level tertinggi
+                });
+
+                // Ambil 5 Teratas
+                const top5 = sortedUsers.slice(0, 5);
+                
+                if (top5.length === 0) {
+                    await sock.sendMessage(from, { text: '❌ Belum ada data level di grup ini.' }, { quoted: msg });
+                    return;
+                }
+
+                let textLeaderboard = `🏆 *TOP 5 LEADERBOARD LEVEL GRUP* 🏆\n\n`;
+                const mentionsList = [];
+
+                top5.forEach((user, index) => {
+                    const rankEmoji = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][index];
+                    const tagNumber = user.jid.split('@')[0];
+                    textLeaderboard += `${rankEmoji} *@${tagNumber}*\n    └ 🏅 Level: *${user.level}* | ⚡ XP: *${user.xp}*\n\n`;
+                    mentionsList.push(user.jid);
+                });
+
+                await sock.sendMessage(from, { 
+                    text: textLeaderboard, 
+                    mentions: mentionsList 
+                }, { quoted: msg });
+                
+                return;
+            }
+
+            // C. PROSES DOWNLOADER TIKTOK (+25 XP BONUS)
+            if (cleanUrl && cleanUrl.includes('tiktok.com')) {
                 await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]*\nSedang mengunduh media...' }, { quoted: msg });
                 const res = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`);
                 const json = await res.json();
 
                 if (json.data) {
-                    // Jika berupa Video
                     if (json.data.play) {
                         await sock.sendMessage(from, {
                             video: { url: json.data.play },
                             caption: `✅ *${json.data.title || 'TikTok Video'}*`
                         }, { quoted: msg });
-                    } 
-                    // Jika berupa Postingan Foto / Slide (Carousel)
-                    else if (json.data.images && json.data.images.length > 0) {
+                    } else if (json.data.images && json.data.images.length > 0) {
                         for (const imgUrl of json.data.images) {
                             await sock.sendMessage(from, { image: { url: imgUrl } }, { quoted: msg });
                         }
                     }
+                    await tambahXP(sock, from, userJid, 25, msg);
                 } else {
                     await sock.sendMessage(from, { text: '❌ Gagal mengunduh media TikTok.' }, { quoted: msg });
                 }
+                return;
             }
 
-            // B. DOWNLOADER INSTAGRAM, YOUTUBE, FB, PINTEREST, DLL (Cobalt API)
+            // D. PROSES DOWNLOADER MULTI-PLATFORM VIA COBALT API (+25 XP BONUS)
             else if (
-                cleanUrl.includes('instagram.com') || 
-                cleanUrl.includes('youtube.com') || 
-                cleanUrl.includes('youtu.be') ||
-                cleanUrl.includes('facebook.com') ||
-                cleanUrl.includes('pin.it') ||
-                cleanUrl.includes('pinterest.com')
+                cleanUrl && (
+                    cleanUrl.includes('instagram.com') || 
+                    cleanUrl.includes('youtube.com') || 
+                    cleanUrl.includes('youtu.be') ||
+                    cleanUrl.includes('facebook.com') ||
+                    cleanUrl.includes('pin.it') ||
+                    cleanUrl.includes('pinterest.com')
+                )
             ) {
                 await sock.sendMessage(from, { text: `⏳ *[Media Downloader]*\nSedang memproses postingan/media...` }, { quoted: msg });
 
@@ -148,7 +241,6 @@ Semoga betah di keluarga anime ini ♡
                 const data = await response.json();
 
                 if (data) {
-                    // 1. Jika hasilnya Single Video / Single Image
                     if (data.url) {
                         const isImage = data.url.includes('.jpg') || data.url.includes('.png') || data.url.includes('.webp');
                         if (isImage) {
@@ -156,9 +248,7 @@ Semoga betah di keluarga anime ini ♡
                         } else {
                             await sock.sendMessage(from, { video: { url: data.url }, caption: '✅ Video berhasil diunduh!' }, { quoted: msg });
                         }
-                    } 
-                    // 2. Jika hasilnya Slide / Carousel Foto Banyak (Instagram Post)
-                    else if (data.picker && data.picker.length > 0) {
+                    } else if (data.picker && data.picker.length > 0) {
                         for (const item of data.picker) {
                             if (item.type === 'photo') {
                                 await sock.sendMessage(from, { image: { url: item.url } }, { quoted: msg });
@@ -168,11 +258,18 @@ Semoga betah di keluarga anime ini ♡
                         }
                     } else {
                         await sock.sendMessage(from, { text: '❌ Gagal mengambil media dari link tersebut.' }, { quoted: msg });
+                        return;
                     }
+                    await tambahXP(sock, from, userJid, 25, msg);
                 }
+                return;
             }
+
+            // E. PENAMBAHAN XP CHAT BIASA (+10 XP)
+            await tambahXP(sock, from, userJid, 10, msg);
+
         } catch (err) {
-            console.error('Error Downloader:', err);
+            console.error('Error Bot Process:', err);
         }
     });
 }

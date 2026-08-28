@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Fade Dissolve Scroll</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      overflow: hidden; /* Menghilangkan scrollbar bawaan browser */
+      background-color: #0A1C15;
+      color: white;
+    }
+
+    /* KONTEN UTAMA: Menumpuk semua tampilan di satu titik yang sama */
+    .container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* SETIAP TAMPILAN (SECTION) */
+    section {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      
+      /* EFEK DISSOLVE UUTAMA: Pakai Opacity & Transition */
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 1s ease-in-out, visibility 1s ease-in-out;
+    }
+
+    /* KELAS AKTIF: Tampilan yang sedang terlihat */
+    section.aktif {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* WARNA MASING-MASING TAMPILAN */
+    .tampilan-1 { background-color: #142E23; } /* Hijau Tua */
+    .tampilan-2 { background-color: #0f172a; } /* Biru Gelap */
+    .tampilan-3 { background-color: #581c87; } /* Ungu Gelap */
+
+    h1 { font-size: 3rem; margin-bottom: 10px; }
+    p { font-size: 1.2rem; opacity: 0.8; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- TAMPILAN 1 (Diberi class 'aktif' agar muncul pertama kali) -->
+    <section class="tampilan-1 aktif">
+      <h1>Tampilan 1 🚀</h1>
+      <p>Scroll ke bawah/atas untuk efek dissolve</p>
+    </section>
+
+    <!-- TAMPILAN 2 -->
+    <section class="tampilan-2">
+      <h1>Tampilan 2 🎨</h1>
+      <p>Transisinya mulus memudar (fade in / fade out)</p>
+    </section>
+
+    <!-- TAMPILAN 3 -->
+    <section class="tampilan-3">
+      <h1>Tampilan 3 ✨</h1>
+      <p>Pas banget buat portofolio berkelas!</p>
+    </section>
+  </div>
+
+  <script>
+    const sections = document.querySelectorAll('section');
+    let indexAktif = 0;
+    let sedangTransisi = false; // Biar scroll gak ketumpuk pas animasi jalan
+
+    // Mendengarkan putaran mouse wheel
+    window.addEventListener('wheel', (e) => {
+      if (sedangTransisi) return; // Kalau animasi masih jalan, cuekin scroll berikutnya
+
+      if (e.deltaY > 0) {
+        // Scroll ke Bawah -> Pindah ke Tampilan Berikutnya
+        if (indexAktif < sections.length - 1) {
+          gantiTampilan(indexAktif + 1);
+        }
+      } else {
+        // Scroll ke Atas -> Pindah ke Tampilan Sebelumnya
+        if (indexAktif > 0) {
+          gantiTampilan(indexAktif - 1);
+        }
+      }
+    });
+
+    function gantiTampilan(indexBaru) {
+      sedangTransisi = true;
+
+      // Hapus kelas 'aktif' dari tampilan lama (efek fade out)
+      sections[indexAktif].classList.remove('aktif');
+
+      // Tambahkan kelas 'aktif' ke tampilan baru (efek fade in)
+      indexAktif = indexBaru;
+      sections[indexAktif].classList.add('aktif');
+
+      // Beri jeda 1 detik sesuai durasi transisi CSS
+      setTimeout(() => {
+        sedangTransisi = false;
+      }, 1000);
+    }
+  </script>
+
+</body>
+</html>
