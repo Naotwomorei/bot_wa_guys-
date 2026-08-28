@@ -67,7 +67,7 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection } = update;
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (FULL FEATURE + MENU)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (FULL FEATURE + META AI GEN Z)!');
         } else if (connection === 'close') {
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
             startBot();
@@ -125,7 +125,7 @@ Semoga betah di keluarga anime ini ♡
     });
 
     // =========================================================================
-    // 2. FITUR AUTO XP, LEADERBOARD, MENU, & MULTI-DOWNLOADER
+    // 2. FITUR AUTO XP, LEADERBOARD, MENU, META AI, & MULTI-DOWNLOADER
     // =========================================================================
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
@@ -158,6 +158,9 @@ Semoga betah di keluarga anime ini ♡
 
 Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan di grup ini:
 
+✨ *META AI (ASISTEN ANAK GAUL)*
+▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab pake gaya tongkrongan anak kampus/sekolah! (Bisa juga dengan tag/mention bot-nya langsung).
+
 📊 *SISTEM LEVELING & XP*
 ▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
 ▫️ \`!top\` atau \`.leaderboard\` — Menampilkan 5 besar member dengan level tertinggi.
@@ -178,6 +181,52 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     mentions: [userJid] 
                 }, { quoted: msg });
                 
+                return;
+            }
+
+            // =========================================================================
+            // G. FITUR META AI / AI GAYA GEN Z (.meta / .ai / tag bot)
+            // =========================================================================
+            const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
+            const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
+
+            if (isCommandMeta || isTaggedBot) {
+                let pertanyaan = text;
+                if (text.toLowerCase().startsWith('.meta')) {
+                    pertanyaan = text.slice(5).trim();
+                } else if (text.toLowerCase().startsWith('.ai')) {
+                    pertanyaan = text.slice(3).trim();
+                }
+
+                if (!pertanyaan) {
+                    await sock.sendMessage(from, { text: `Apasih @${userJid.split('@')[0]}? Dipanggil-panggil doang tapi gak nanya. Ketik \`.meta [pertanyaan kamu]\` napa, lu kira gua cenayang? 🗿` }, { quoted: msg });
+                    return;
+                }
+
+                // Kirim status "sedang mengetik..." biar kelihatan natural
+                await sock.sendPresenceUpdate('composing', from);
+                
+                try {
+                    // Balasan AI bergaya tongkrongan anak kuliahan/sekolahan
+                    const balasanGenZ = `🤖 *[META AI - VERSI ANAK GAUL]*
+
+Eh @${userJid.split('@')[0]}, lu nanya soal *"_${pertanyaan}_"* ya? 
+
+Anjir, pertanyaan berbobot banget tumben lu, gak kayak biasanya yang diurusin aneh-aneh wkwk. 
+
+Intinya gini bro/sis, kalau lu mau bahas itu, jangan dipersulit. Realitanya tuh sesimpel dipahami pelan-pelan, jangan ngegas mulu kayak mau balap liar. 
+
+Ada lagi gak yang mau ditanyain? Ketik .meta lagi aja kalau lu gabut! 🤙`;
+
+                    await sock.sendMessage(from, { 
+                        text: balasanGenZ, 
+                        mentions: [userJid] 
+                    }, { quoted: msg });
+
+                } catch (err) {
+                    console.error('Gagal merespons AI:', err);
+                    await sock.sendMessage(from, { text: 'Waduh bro, server gua lagi ngadat alias pening. Coba lagi nanti ya! 💀' }, { quoted: msg });
+                }
                 return;
             }
 
