@@ -67,7 +67,7 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection } = update;
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (WITH ANTI-SPAM COOLDOWN & STICKER FILTER)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (FULL FEATURE + MENU)!');
         } else if (connection === 'close') {
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
             startBot();
@@ -125,7 +125,7 @@ Semoga betah di keluarga anime ini ♡
     });
 
     // =========================================================================
-    // 2. FITUR AUTO XP, LEADERBOARD, & MULTI-DOWNLOADER
+    // 2. FITUR AUTO XP, LEADERBOARD, MENU, & MULTI-DOWNLOADER
     // =========================================================================
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
@@ -144,6 +144,42 @@ Semoga betah di keluarga anime ini ♡
 
             const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
             const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
+
+            // =========================================================================
+            // F. COMMAND MENU / BANTUAN (!menu / .menu / !help)
+            // =========================================================================
+            if (
+                text.toLowerCase() === '!menu' || 
+                text.toLowerCase() === '.menu' || 
+                text.toLowerCase() === '!help' ||
+                text.toLowerCase() === '.help'
+            ) {
+                const menuText = `🤖 *DAFTAR FITUR BOT A.P.A* 🤖
+
+Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan di grup ini:
+
+📊 *SISTEM LEVELING & XP*
+▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
+▫️ \`!top\` atau \`.leaderboard\` — Menampilkan 5 besar member dengan level tertinggi.
+💡 *Info:* Kirim chat aktif di grup untuk dapat XP (+10). Stiker tidak dihitung dan ada jeda anti-spam 3 detik!
+
+📥 *MULTI-PLATFORM DOWNLOADER*
+Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
+▫️ 🎵 *TikTok* (Video / Foto Carousel)
+▫️ 📸 *Instagram* (Reels / Post / Foto)
+▫️ 🎬 *YouTube / YouTube Shorts*
+▫️ 📘 *Facebook*
+▫️ 📌 *Pinterest*
+
+Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
+
+                await sock.sendMessage(from, { 
+                    text: menuText, 
+                    mentions: [userJid] 
+                }, { quoted: msg });
+                
+                return;
+            }
 
             // A. COMMAND CEK LEVEL PRIBADI (!level / .level)
             if (text.toLowerCase() === '!level' || text.toLowerCase() === '.level') {
