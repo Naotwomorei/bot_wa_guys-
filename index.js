@@ -67,7 +67,7 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection } = update;
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (FULL FEATURE + META AI GEN Z)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GEMINI AI + LEVELING + DOWNLOADER)!');
         } else if (connection === 'close') {
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
             startBot();
@@ -125,7 +125,7 @@ Semoga betah di keluarga anime ini ♡
     });
 
     // =========================================================================
-    // 2. FITUR AUTO XP, LEADERBOARD, MENU, META AI, & MULTI-DOWNLOADER
+    // 2. FITUR AUTO XP, LEADERBOARD, MENU, GEMINI AI, & MULTI-DOWNLOADER
     // =========================================================================
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
@@ -158,8 +158,8 @@ Semoga betah di keluarga anime ini ♡
 
 Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan di grup ini:
 
-✨ *META AI (ASISTEN ANAK GAUL)*
-▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab pake gaya tongkrongan anak kampus/sekolah! (Bisa juga dengan tag/mention bot-nya langsung).
+✨ *GOOGLE GEMINI AI (ASISTEN ANAK GAUL)*
+▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab cerdas pake gaya tongkrongan anak kampus/sekolah! (Bisa juga dengan tag/mention bot-nya langsung).
 
 📊 *SISTEM LEVELING & XP*
 ▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
@@ -185,7 +185,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // G. FITUR META AI / AI GAYA GEN Z (.meta / .ai / tag bot)
+            // G. FITUR GOOGLE GEMINI AI (GAYA GEN Z TONGKRONGAN)
             // =========================================================================
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
@@ -203,29 +203,42 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     return;
                 }
 
-                // Kirim status "sedang mengetik..." biar kelihatan natural
+                // Kirim status "sedang mengetik..." biar natural
                 await sock.sendPresenceUpdate('composing', from);
                 
                 try {
-                    // Balasan AI bergaya tongkrongan anak kuliahan/sekolahan
-                    const balasanGenZ = `🤖 *[META AI - VERSI ANAK GAUL]*
+                    const apiKey = process.env.GEMINI_API_KEY;
+                    if (!apiKey) {
+                        await sock.sendMessage(from, { text: '⚠️ Waduh, API Key Gemini belum diset di server Railway nih, bro!' }, { quoted: msg });
+                        return;
+                    }
 
-Eh @${userJid.split('@')[0]}, lu nanya soal *"_${pertanyaan}_"* ya? 
+                    // Prompt agar Gemini menjawab pintar sekaligus pakai gaya bahasa gaul Gen Z
+                    const systemPrompt = "Kamu adalah asisten AI di grup WhatsApp anak sekolah dan mahasiswa. Jawablah pertanyaan berikut dengan akurat dan pintar, namun gunakan bahasa gaul Gen Z Indonesia yang santai, akrab, pakai kata lu-gue/bro, sedikit humor tongkrongan kampus, tapi tetap informatif.";
 
-Anjir, pertanyaan berbobot banget tumben lu, gak kayak biasanya yang diurusin aneh-aneh wkwk. 
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [
+                                { role: "user", parts: [{ text: `${systemPrompt}\n\nPertanyaan user: ${pertanyaan}` }] }
+                            ]
+                        })
+                    });
 
-Intinya gini bro/sis, kalau lu mau bahas itu, jangan dipersulit. Realitanya tuh sesimpel dipahami pelan-pelan, jangan ngegas mulu kayak mau balap liar. 
+                    const data = await response.json();
+                    let jawabanGemini = data.candidates?.[0]?.content?.parts?.[0]?.text || "Duh, otak gua lagi konslet, coba lagi nanti ya!";
 
-Ada lagi gak yang mau ditanyain? Ketik .meta lagi aja kalau lu gabut! 🤙`;
+                    const balasanFinal = `🤖 *[META AI - GEN Z]*\n\n${jawabanGemini}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
 
                     await sock.sendMessage(from, { 
-                        text: balasanGenZ, 
+                        text: balasanFinal, 
                         mentions: [userJid] 
                     }, { quoted: msg });
 
                 } catch (err) {
-                    console.error('Gagal merespons AI:', err);
-                    await sock.sendMessage(from, { text: 'Waduh bro, server gua lagi ngadat alias pening. Coba lagi nanti ya! 💀' }, { quoted: msg });
+                    console.error('Gagal memanggil Gemini API:', err);
+                    await sock.sendMessage(from, { text: 'Waduh bro, server AI lagi pening gak bisa mikir. Coba lagi nanti ya! 💀' }, { quoted: msg });
                 }
                 return;
             }
