@@ -3,6 +3,11 @@ const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 
+// =========================================================================
+// 📌 CONFIGURASI TARGET GRUP
+// =========================================================================
+const TARGET_GROUP = '120363426460671438@g.us'; // ID Grup Khusus Kamu
+
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
     
@@ -24,12 +29,14 @@ async function startBot() {
         }
     });
 
- // 1. FITUR WELCOME MESSAGE (FORMAT INTRO ANIMATED/AESTHETIC)
+    // =========================================================================
+    // 1. FITUR WELCOME MESSAGE (TETAP KHUSUS GRUP TARGET)
+    // =========================================================================
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
-        const targetGroup = '120363426460671438@g.us';
 
-        if (id === targetGroup && action === 'add') {
+        // FILTER: Hanya jalan di Grup Target & saat ada anggota baru
+        if (id === TARGET_GROUP && action === 'add') {
             for (const participant of participants) {
                 const userJid = typeof participant === 'string' ? participant : (participant.id || participant.jid || '');
                 if (!userJid) continue;
@@ -75,38 +82,59 @@ Semoga betah di keluarga anime ini ♡
         }
     });
 
-    // 2. FITUR DOWNLOADER MULTI-PLATFORM STABIL
+    // =========================================================================
+    // 2. FITUR DOWNLOADER MULTI-MEDIA (KHUSUS GRUP TARGET)
+    // =========================================================================
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             const msg = messages[0];
             if (!msg.message || msg.key.fromMe) return;
 
-            const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
             const from = msg.key.remoteJid;
+
+            // 🔒 FILTER UTAMA: LGSG STOP JIKA PESAN BUKAN DARI GRUP TARGET!
+            if (from !== TARGET_GROUP) return;
+
+            const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
             const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
 
             if (!cleanUrl) return;
 
             // A. DOWNLOADER TIKTOK (TikWM API)
             if (cleanUrl.includes('tiktok.com')) {
-                await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]*\nSedang mengunduh video...' }, { quoted: msg });
+                await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]*\nSedang mengunduh media...' }, { quoted: msg });
                 const res = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`);
                 const json = await res.json();
 
-                if (json.data && json.data.play) {
-                    await sock.sendMessage(from, {
-                        video: { url: json.data.play },
-                        caption: `✅ *${json.data.title || 'TikTok Video'}*`
-                    }, { quoted: msg });
+                if (json.data) {
+                    // Jika berupa Video
+                    if (json.data.play) {
+                        await sock.sendMessage(from, {
+                            video: { url: json.data.play },
+                            caption: `✅ *${json.data.title || 'TikTok Video'}*`
+                        }, { quoted: msg });
+                    } 
+                    // Jika berupa Postingan Foto / Slide (Carousel)
+                    else if (json.data.images && json.data.images.length > 0) {
+                        for (const imgUrl of json.data.images) {
+                            await sock.sendMessage(from, { image: { url: imgUrl } }, { quoted: msg });
+                        }
+                    }
                 } else {
-                    await sock.sendMessage(from, { text: '❌ Gagal mengunduh video TikTok.' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: '❌ Gagal mengunduh media TikTok.' }, { quoted: msg });
                 }
             }
 
-            // B. DOWNLOADER INSTAGRAM & YOUTUBE (Cobalt API)
-            else if (cleanUrl.includes('instagram.com') || cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
-                const platform = cleanUrl.includes('instagram.com') ? 'Instagram' : 'YouTube';
-                await sock.sendMessage(from, { text: `⏳ *[${platform} Downloader]*\nSedang memproses media...` }, { quoted: msg });
+            // B. DOWNLOADER INSTAGRAM, YOUTUBE, FB, PINTEREST, DLL (Cobalt API)
+            else if (
+                cleanUrl.includes('instagram.com') || 
+                cleanUrl.includes('youtube.com') || 
+                cleanUrl.includes('youtu.be') ||
+                cleanUrl.includes('facebook.com') ||
+                cleanUrl.includes('pin.it') ||
+                cleanUrl.includes('pinterest.com')
+            ) {
+                await sock.sendMessage(from, { text: `⏳ *[Media Downloader]*\nSedang memproses postingan/media...` }, { quoted: msg });
 
                 const response = await fetch('https://api.cobalt.tools/api/json', {
                     method: 'POST',
@@ -119,13 +147,28 @@ Semoga betah di keluarga anime ini ♡
 
                 const data = await response.json();
 
-                if (data && data.url) {
-                    await sock.sendMessage(from, {
-                        video: { url: data.url },
-                        caption: `✅ Berhasil diunduh dari *${platform}*!`
-                    }, { quoted: msg });
-                } else {
-                    await sock.sendMessage(from, { text: `❌ Gagal mengambil media dari ${platform}.` }, { quoted: msg });
+                if (data) {
+                    // 1. Jika hasilnya Single Video / Single Image
+                    if (data.url) {
+                        const isImage = data.url.includes('.jpg') || data.url.includes('.png') || data.url.includes('.webp');
+                        if (isImage) {
+                            await sock.sendMessage(from, { image: { url: data.url }, caption: '✅ Foto berhasil diunduh!' }, { quoted: msg });
+                        } else {
+                            await sock.sendMessage(from, { video: { url: data.url }, caption: '✅ Video berhasil diunduh!' }, { quoted: msg });
+                        }
+                    } 
+                    // 2. Jika hasilnya Slide / Carousel Foto Banyak (Instagram Post)
+                    else if (data.picker && data.picker.length > 0) {
+                        for (const item of data.picker) {
+                            if (item.type === 'photo') {
+                                await sock.sendMessage(from, { image: { url: item.url } }, { quoted: msg });
+                            } else if (item.type === 'video') {
+                                await sock.sendMessage(from, { video: { url: item.url } }, { quoted: msg });
+                            }
+                        }
+                    } else {
+                        await sock.sendMessage(from, { text: '❌ Gagal mengambil media dari link tersebut.' }, { quoted: msg });
+                    }
                 }
             }
         } catch (err) {
