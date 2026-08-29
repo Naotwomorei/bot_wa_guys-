@@ -67,7 +67,7 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection } = update;
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GEMINI AI + LEVELING + DOWNLOADER)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GEMINI AI + LEVELING + MUSIC PLAYER + DOWNLOADER)!');
         } else if (connection === 'close') {
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
             startBot();
@@ -125,7 +125,7 @@ Semoga betah di keluarga anime ini ♡
     });
 
     // =========================================================================
-    // 2. FITUR AUTO XP, LEADERBOARD, MENU, GEMINI AI, & MULTI-DOWNLOADER
+    // 2. FITUR UTAMA BOT (MESSAGES UPSERT)
     // =========================================================================
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
@@ -138,7 +138,7 @@ Semoga betah di keluarga anime ini ♡
             // 🔒 FILTER UTAMA: Hanya proses jika berasal dari Grup Target!
             if (from !== TARGET_GROUP) return;
 
-            // 🚫 FILTER 1: Jika pesan berupa Stiker, abaikan perhitungan XP (langsung return/stop)
+            // 🚫 FILTER 1: Jika pesan berupa Stiker, abaikan perhitungan XP
             const isSticker = msg.message.stickerMessage;
             if (isSticker) return;
 
@@ -160,6 +160,9 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 ✨ *GOOGLE GEMINI AI (ASISTEN ANAK GAUL)*
 ▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab cerdas pake gaya tongkrongan anak kampus/sekolah! (Bisa juga dengan tag/mention bot-nya langsung).
+
+🎵 *MUSIC PLAYER (.PLAY)*
+▫️ \`.play [judul lagu]\` — Cari dan putar/kirim lagu dari YouTube langsung ke grup! (Bonus +25 XP)
 
 📊 *SISTEM LEVELING & XP*
 ▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
@@ -185,7 +188,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // G. FITUR GOOGLE GEMINI AI (GAYA GEN Z TONGKRONGAN)
+            // G. FITUR GOOGLE GEMINI AI (+ PESAN INSTAN PEMBUKA)
             // =========================================================================
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
@@ -203,7 +206,10 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     return;
                 }
 
-                // Kirim status "sedang mengetik..." biar natural
+                // 🚀 PESAN INSTAN PERTAMA (Biar user tau bot sedang merespon)
+                await sock.sendMessage(from, { text: `🧠 Lagi diracik jawabannya sama AI, bentar ya @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
+
+                // Kirim status "sedang mengetik..."
                 await sock.sendPresenceUpdate('composing', from);
                 
                 try {
@@ -213,10 +219,8 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                         return;
                     }
 
-                    // Prompt agar Gemini menjawab pintar sekaligus pakai gaya bahasa gaul Gen Z
                     const systemPrompt = "Kamu adalah asisten AI di grup WhatsApp anak sekolah dan mahasiswa. Jawablah pertanyaan berikut dengan akurat dan pintar, namun gunakan bahasa gaul Gen Z Indonesia yang santai, akrab, pakai kata lu-gue/bro, sedikit humor tongkrongan kampus, tapi tetap informatif.";
 
-                    // Menggunakan model gemini-2.5-flash terbaru yang stabil
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -236,7 +240,6 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     }
 
                     let jawabanGemini = data.candidates?.[0]?.content?.parts?.[0]?.text || "Duh, otak gua lagi konslet, coba lagi nanti ya!";
-
                     const balasanFinal = `🤖 *[META AI - GEN Z]*\n\n${jawabanGemini}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
 
                     await sock.sendMessage(from, { 
@@ -247,6 +250,70 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                 } catch (err) {
                     console.error('Gagal memanggil Gemini API:', err);
                     await sock.sendMessage(from, { text: 'Waduh bro, server AI lagi pening gak bisa mikir. Coba lagi nanti ya! 💀' }, { quoted: msg });
+                }
+                return;
+            }
+
+            // =========================================================================
+            // H. FITUR PEMUTAR LAGU / MUSIC PLAYER (.play / .song) + PESAN INSTAN
+            // =========================================================================
+            if (text.toLowerCase().startsWith('.play') || text.toLowerCase().startsWith('.song')) {
+                let queryLagu = text.slice(5).trim();
+                if (!queryLagu) {
+                    await sock.sendMessage(from, { text: `⚠️ Judul lagunya mana, @${userJid.split('@')[0]}?\nContoh: \`.play Tulus Hati-Hati di Jalan\``, mentions: [userJid] }, { quoted: msg });
+                    return;
+                }
+
+                // 🚀 PESAN INSTAN PERTAMA
+                await sock.sendMessage(from, { text: `🎵 *[MUSIC PLAYER]*\nSabar bree, lagi nyari lagu "${queryLagu}" di server... ⏳`, mentions: [userJid] }, { quoted: msg });
+
+                try {
+                    const searchRes = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(queryLagu)}&filter=videos`);
+                    const searchJson = await searchRes.json();
+
+                    if (!searchJson.items || searchJson.items.length === 0) {
+                        await sock.sendMessage(from, { text: `❌ Wah, lagu "${queryLagu}" gak ketemu. Coba judul lain, bro!` }, { quoted: msg });
+                        return;
+                    }
+
+                    const videoTop = searchJson.items[0];
+                    const videoUrl = `https://www.youtube.com/watch?v=${videoTop.id}`;
+                    const videoTitle = videoTop.title;
+
+                    await sock.sendMessage(from, { text: `📥 Ketemu: *${videoTitle}*\nSedang mengunduh file audio MP3-nya...` }, { quoted: msg });
+
+                    const cobaltRes = await fetch('https://api.cobalt.tools/api/json', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            url: videoUrl,
+                            downloadMode: 'audio',
+                            audioFormat: 'mp3'
+                        })
+                    });
+
+                    const cobaltData = await cobaltRes.json();
+
+                    if (cobaltData && cobaltData.url) {
+                        await sock.sendMessage(from, { 
+                            audio: { url: cobaltData.url }, 
+                            mimetype: 'audio/mp4', 
+                            ptt: false, 
+                            caption: `🎶 *BERHASIL MEMUTAR LAGU*\n\n📌 Judul: *${videoTitle}*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                        }, { quoted: msg });
+
+                        // Tambah Bonus XP
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    } else {
+                        await sock.sendMessage(from, { text: '❌ Gagal mengekstrak audio lagu tersebut.' }, { quoted: msg });
+                    }
+
+                } catch (err) {
+                    console.error('Error Music Player:', err);
+                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala saat memproses lagu. Coba judul lain ya!' }, { quoted: msg });
                 }
                 return;
             }
@@ -385,15 +452,11 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             if (cooldownXP[userJid]) {
                 const selisihWaktu = now - cooldownXP[userJid];
                 if (selisihWaktu < cooldownTime) {
-                    // Jika belum lewat 3 detik sejak chat terakhir, jangan tambahkan XP
-                    return;
+                    return; // Abaikan jika belum lewat 3 detik
                 }
             }
 
-            // Perbarui waktu chat terakhir user ini
             cooldownXP[userJid] = now;
-
-            // Tambahkan XP karena sudah melewati jeda 3 detik
             await tambahXP(sock, from, userJid, 10, msg);
 
         } catch (err) {
