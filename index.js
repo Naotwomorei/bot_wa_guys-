@@ -209,7 +209,6 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                 await sock.sendPresenceUpdate('composing', from);
                 
                 try {
-                    // Mengambil kunci dari environment variable GROQ_API_KEY
                     const apiKey = process.env.GROQ_API_KEY;
                     if (!apiKey) {
                         await sock.sendMessage(from, { text: '⚠️ Waduh, API Key Groq belum diset di server Railway nih, bro! Tambahin variabel GROQ_API_KEY ya.' }, { quoted: msg });
@@ -218,7 +217,6 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
 
                     const systemPrompt = "Kamu adalah asisten AI di grup WhatsApp anak sekolah dan mahasiswa. Jawablah pertanyaan berikut dengan akurat dan pintar, namun gunakan bahasa gaul Gen Z Indonesia yang santai, akrab, pakai kata lu-gue/bro, sedikit humor tongkrongan kampus, tapi tetap informatif.";
 
-                    // Request ke endpoint resmi Groq API menggunakan model Llama 3 70B
                     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                         method: 'POST',
                         headers: { 
@@ -237,13 +235,16 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
 
                     const data = await response.json();
                     
+                    // Debugging respon mentah di console railway
+                    console.log("RESPONS DARI GROQ:", JSON.stringify(data, null, 2));
+
                     if (data.error) {
                         console.error('Error dari Groq API:', data.error);
                         await sock.sendMessage(from, { text: `⚠️ AI Error: ${data.error.message}` }, { quoted: msg });
                         return;
                     }
 
-                    let jawabanAI = data.choices?.[0]?.message?.content || "Duh, otak gua lagi konslet, coba lagi nanti ya!";
+                    let jawabanAI = data.choices?.[0]?.message?.content || data.output || "Duh, otak gua lagi konslet, coba lagi nanti ya!";
                     const balasanFinal = `🤖 *[GROQ AI - GEN Z]*\n\n${jawabanAI}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
 
                     await sock.sendMessage(from, { 
@@ -253,7 +254,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
 
                 } catch (err) {
                     console.error('Gagal memanggil Groq API:', err);
-                    await sock.sendMessage(from, { text: 'Waduh bro, server AI lagi pening gak bisa mikir. Coba lagi nanti ya! 💀' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `Waduh bro, error: ${err.message}` }, { quoted: msg });
                 }
                 return;
             }
