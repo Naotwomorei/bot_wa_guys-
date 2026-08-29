@@ -67,7 +67,7 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection } = update;
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GEMINI AI + LEVELING + MUSIC PLAYER + DOWNLOADER)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GEMINI AI + LEVELING + MUSIC LINK + DOWNLOADER)!');
         } else if (connection === 'close') {
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
             startBot();
@@ -161,8 +161,8 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 ✨ *GOOGLE GEMINI AI (ASISTEN ANAK GAUL)*
 ▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab cerdas pake gaya tongkrongan anak kampus/sekolah! (Bisa juga dengan tag/mention bot-nya langsung).
 
-🎵 *MUSIC PLAYER (.PLAY)*
-▫️ \`.play [judul lagu]\` — Cari dan putar/kirim lagu dari YouTube langsung ke grup! (Bonus +25 XP)
+🎵 *MUSIC PLAYER (.PLAY LINK YOUTUBE)*
+▫️ \`.play [link youtube]\` — Kirim link YouTube, bot bakal langsung kirim file audionya ke grup! (Bonus +25 XP)
 
 📊 *SISTEM LEVELING & XP*
 ▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
@@ -255,34 +255,21 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. FITUR PEMUTAR LAGU / MUSIC PLAYER (.play / .song) + API STABIL
+            // H. FITUR MUSIC PLAYER VIA LINK (.play [link youtube]) 100% ANTI-DOWN
             // =========================================================================
-            if (text.toLowerCase().startsWith('.play') || text.toLowerCase().startsWith('.song')) {
-                let queryLagu = text.slice(5).trim();
-                if (!queryLagu) {
-                    await sock.sendMessage(from, { text: `⚠️ Judul lagunya mana, @${userJid.split('@')[0]}?\nContoh: \`.play Tulus Hati-Hati di Jalan\``, mentions: [userJid] }, { quoted: msg });
+            if (text.toLowerCase().startsWith('.play')) {
+                const urlArg = text.slice(5).trim();
+                const ytUrl = urlArg.match(/(https?:\/\/[^\s]+)/g)?.[0];
+
+                if (!ytUrl || (!ytUrl.includes('youtube.com') && !ytUrl.includes('youtu.be'))) {
+                    await sock.sendMessage(from, { text: `⚠️ Format salah, @${userJid.split('@')[0]}!\nKirim link YouTube-nya langsung, contoh:\n\`.play https://youtu.be/xxxxxx\``, mentions: [userJid] }, { quoted: msg });
                     return;
                 }
 
                 // 🚀 PESAN INSTAN PERTAMA
-                await sock.sendMessage(from, { text: `🎵 *[MUSIC PLAYER]*\nSabar bree, lagi nyari lagu "${queryLagu}"... ⏳`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `🎵 *[MUSIC PLAYER]*\nSabar bree, sedang mengekstrak audio MP3 dari link YouTube... ⏳`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    const searchRes = await fetch(`https://invidious.jing.rocks/api/v1/search?q=${encodeURIComponent(queryLagu)}&type=video`);
-                    const searchJson = await searchRes.json();
-
-                    if (!searchJson || searchJson.length === 0) {
-                        await sock.sendMessage(from, { text: `❌ Wah, lagu "${queryLagu}" gak ketemu. Coba judul lain, bro!` }, { quoted: msg });
-                        return;
-                    }
-
-                    const videoTop = searchJson[0];
-                    const videoId = videoTop.videoId;
-                    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                    const videoTitle = videoTop.title;
-
-                    await sock.sendMessage(from, { text: `📥 Ketemu: *${videoTitle}*\nSedang mengunduh file audio MP3-nya...` }, { quoted: msg });
-
                     const cobaltRes = await fetch('https://api.cobalt.tools/api/json', {
                         method: 'POST',
                         headers: {
@@ -290,7 +277,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ 
-                            url: videoUrl,
+                            url: ytUrl,
                             downloadMode: 'audio',
                             audioFormat: 'mp3'
                         })
@@ -303,17 +290,17 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                             audio: { url: cobaltData.url }, 
                             mimetype: 'audio/mp4', 
                             ptt: false, 
-                            caption: `🎶 *BERHASIL MEMUTAR LAGU*\n\n📌 Judul: *${videoTitle}*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                            caption: `🎶 *BERHASIL MENGIRIM AUDIO*\n\n👤 Diminta oleh: @${userJid.split('@')[0]}`
                         }, { quoted: msg });
 
                         await tambahXP(sock, from, userJid, 25, msg);
                     } else {
-                        await sock.sendMessage(from, { text: '❌ Gagal mengekstrak audio lagu tersebut dari server pengunduh.' }, { quoted: msg });
+                        await sock.sendMessage(from, { text: '❌ Gagal mengekstrak audio dari link tersebut. Pastikan link YouTube-nya benar!' }, { quoted: msg });
                     }
 
                 } catch (err) {
-                    console.error('Error Music Player:', err);
-                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala saat memproses lagu. Coba judul lain ya!' }, { quoted: msg });
+                    console.error('Error Music Player Link:', err);
+                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala saat memproses audio. Coba link lain ya!' }, { quoted: msg });
                 }
                 return;
             }
