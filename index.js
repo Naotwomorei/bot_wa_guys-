@@ -67,7 +67,7 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection } = update;
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (YT LINK DOWNLOADER ACTIVE)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GROQ AI + LEVELING + DOWNLOADER)!');
         } else if (connection === 'close') {
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
             startBot();
@@ -158,8 +158,8 @@ Semoga betah di keluarga anime ini ♡
 
 Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan di grup ini:
 
-✨ *GOOGLE GEMINI AI (ASISTEN ANAK GAUL)*
-▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab cerdas pake gaya tongkrongan anak kampus/sekolah!
+✨ *GROQ AI (ASISTEN ANAK GAUL - ANTI LIMIT)*
+▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab super cepat pake gaya tongkrongan anak kampus/sekolah!
 
 📊 *SISTEM LEVELING & XP*
 ▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
@@ -168,7 +168,7 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
 Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
-▫️ 🎬 *YouTube / YouTube Shorts* (Kirim link langsung)
+▫️ 🎬 *YouTube* (Kirim link langsung)
 ▫️ 🎵 *TikTok* (Video / Foto Carousel)
 ▫️ 📸 *Instagram* (Reels / Post / Foto)
 ▫️ 📘 *Facebook*
@@ -185,7 +185,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // G. FITUR GOOGLE GEMINI AI (+ PESAN INSTAN PEMBUKA)
+            // G. FITUR GROQ AI (SUPER CEPAT & ANTI LIMIT)
             // =========================================================================
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
@@ -204,40 +204,47 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                 }
 
                 // 🚀 PESAN INSTAN PERTAMA
-                await sock.sendMessage(from, { text: `🧠 Lagi diracik jawabannya sama AI, bentar ya @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `⚡ Groq AI lagi mikir kilat buat @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
 
-                // Kirim status "sedang mengetik..."
                 await sock.sendPresenceUpdate('composing', from);
                 
                 try {
-                    const apiKey = process.env.GEMINI_API_KEY;
+                    // Mengambil kunci dari environment variable GROQ_API_KEY
+                    const apiKey = process.env.GROQ_API_KEY;
                     if (!apiKey) {
-                        await sock.sendMessage(from, { text: '⚠️ Waduh, API Key Gemini belum diset di server Railway nih, bro!' }, { quoted: msg });
+                        await sock.sendMessage(from, { text: '⚠️ Waduh, API Key Groq belum diset di server Railway nih, bro! Tambahin variabel GROQ_API_KEY ya.' }, { quoted: msg });
                         return;
                     }
 
                     const systemPrompt = "Kamu adalah asisten AI di grup WhatsApp anak sekolah dan mahasiswa. Jawablah pertanyaan berikut dengan akurat dan pintar, namun gunakan bahasa gaul Gen Z Indonesia yang santai, akrab, pakai kata lu-gue/bro, sedikit humor tongkrongan kampus, tapi tetap informatif.";
 
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
+                    // Request ke endpoint resmi Groq API menggunakan model Llama 3 70B
+                    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
                         body: JSON.stringify({
-                            contents: [
-                                { role: "user", parts: [{ text: `${systemPrompt}\n\nPertanyaan user: ${pertanyaan}` }] }
-                            ]
+                            model: "llama3-70b-8192",
+                            messages: [
+                                { role: "system", content: systemPrompt },
+                                { role: "user", content: pertanyaan }
+                            ],
+                            temperature: 0.7
                         })
                     });
 
                     const data = await response.json();
                     
                     if (data.error) {
-                        console.error('Error dari Google API:', data.error);
+                        console.error('Error dari Groq API:', data.error);
                         await sock.sendMessage(from, { text: `⚠️ AI Error: ${data.error.message}` }, { quoted: msg });
                         return;
                     }
 
-                    let jawabanGemini = data.candidates?.[0]?.content?.parts?.[0]?.text || "Duh, otak gua lagi konslet, coba lagi nanti ya!";
-                    const balasanFinal = `🤖 *[META AI - GEN Z]*\n\n${jawabanGemini}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
+                    let jawabanAI = data.choices?.[0]?.message?.content || "Duh, otak gua lagi konslet, coba lagi nanti ya!";
+                    const balasanFinal = `🤖 *[GROQ AI - GEN Z]*\n\n${jawabanAI}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
 
                     await sock.sendMessage(from, { 
                         text: balasanFinal, 
@@ -245,20 +252,19 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     }, { quoted: msg });
 
                 } catch (err) {
-                    console.error('Gagal memanggil Gemini API:', err);
+                    console.error('Gagal memanggil Groq API:', err);
                     await sock.sendMessage(from, { text: 'Waduh bro, server AI lagi pening gak bisa mikir. Coba lagi nanti ya! 💀' }, { quoted: msg });
                 }
                 return;
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE (Kirim link langsung tanpa pakai teks .play)
+            // H. DOWNLOADER YOUTUBE (Kirim link langsung)
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
                 await sock.sendMessage(from, { text: `⏳ *[YouTube Downloader]*\nSabar bree, sedang memproses video/audio dari link YouTube...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    // Menggunakan API pihak ketiga yang stabil khusus untuk download link YouTube
                     const ytRes = await fetch(`https://api.vkrhost.eu.org/download/ytmp4?url=${encodeURIComponent(cleanUrl)}`);
                     const ytJson = await ytRes.json();
 
@@ -270,7 +276,6 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
 
                         await tambahXP(sock, from, userJid, 25, msg);
                     } else {
-                        // Jalur alternatif jika API pertama sedang kendala, lempar pesan ke user
                         await sock.sendMessage(from, { text: '❌ Gagal mengunduh video YouTube tersebut. Coba link video yang lain ya!' }, { quoted: msg });
                     }
                 } catch (err) {
@@ -304,7 +309,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                 return;
             }
 
-            // D. PROSES DOWNLOADER MULTI-PLATFORM (INSTAGRAM, FB, PINTEREST) VIA COBALT
+            // D. PROSES DOWNLOADER MULTI-PLATFORM VIA COBALT API (+25 XP BONUS)
             else if (
                 cleanUrl && (
                     cleanUrl.includes('instagram.com') || 
