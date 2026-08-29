@@ -67,7 +67,7 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection } = update;
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GEMINI AI + LEVELING + MUSIC LINK + DOWNLOADER)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GEMINI AI + LEVELING + MUSIC LINK FIX + DOWNLOADER)!');
         } else if (connection === 'close') {
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
             startBot();
@@ -255,15 +255,23 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. FITUR MUSIC PLAYER VIA LINK (.play [link youtube]) 100% ANTI-DOWN
+            // H. FITUR MUSIC PLAYER VIA LINK (.play [link youtube]) + URL CLEANER
             // =========================================================================
             if (text.toLowerCase().startsWith('.play')) {
                 const urlArg = text.slice(5).trim();
-                const ytUrl = urlArg.match(/(https?:\/\/[^\s]+)/g)?.[0];
+                const rawYtUrl = urlArg.match(/(https?:\/\/[^\s]+)/g)?.[0];
 
-                if (!ytUrl || (!ytUrl.includes('youtube.com') && !ytUrl.includes('youtu.be'))) {
+                if (!rawYtUrl || (!rawYtUrl.includes('youtube.com') && !rawYtUrl.includes('youtu.be'))) {
                     await sock.sendMessage(from, { text: `⚠️ Format salah, @${userJid.split('@')[0]}!\nKirim link YouTube-nya langsung, contoh:\n\`.play https://youtu.be/xxxxxx\``, mentions: [userJid] }, { quoted: msg });
                     return;
+                }
+
+                // 🧹 BERSIHKAN URL DARI SAMPAH PARAMETER (?si=... atau &ab_channel=...)
+                let cleanYtUrl = rawYtUrl.split('?')[0]; 
+                if (rawYtUrl.includes('youtu.be/')) {
+                    // Jika format youtu.be/ID, ambil ID-nya dengan aman
+                    const videoId = rawYtUrl.split('youtu.be/')[1]?.split('?')[0];
+                    cleanYtUrl = `https://youtu.be/${videoId}`;
                 }
 
                 // 🚀 PESAN INSTAN PERTAMA
@@ -277,7 +285,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ 
-                            url: ytUrl,
+                            url: cleanYtUrl,
                             downloadMode: 'audio',
                             audioFormat: 'mp3'
                         })
