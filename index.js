@@ -235,16 +235,20 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
 
                     const data = await response.json();
                     
-                    // Debugging respon mentah di console railway
-                    console.log("RESPONS DARI GROQ:", JSON.stringify(data, null, 2));
-
                     if (data.error) {
                         console.error('Error dari Groq API:', data.error);
                         await sock.sendMessage(from, { text: `⚠️ AI Error: ${data.error.message}` }, { quoted: msg });
                         return;
                     }
 
-                    let jawabanAI = data.choices?.[0]?.message?.content || data.output || "Duh, otak gua lagi konslet, coba lagi nanti ya!";
+                    // Penarikan teks fleksibel agar tidak nyangkut
+                    let jawabanAI = 
+                        data.choices?.[0]?.message?.content || 
+                        data.choices?.[0]?.text || 
+                        data.output || 
+                        data.message || 
+                        JSON.stringify(data);
+
                     const balasanFinal = `🤖 *[GROQ AI - GEN Z]*\n\n${jawabanAI}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
 
                     await sock.sendMessage(from, { 
