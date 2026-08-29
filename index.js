@@ -206,7 +206,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     return;
                 }
 
-                // 🚀 PESAN INSTAN PERTAMA (Biar user tau bot sedang merespon)
+                // 🚀 PESAN INSTAN PERTAMA
                 await sock.sendMessage(from, { text: `🧠 Lagi diracik jawabannya sama AI, bentar ya @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
 
                 // Kirim status "sedang mengetik..."
@@ -255,7 +255,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. FITUR PEMUTAR LAGU / MUSIC PLAYER (.play / .song) + PESAN INSTAN
+            // H. FITUR PEMUTAR LAGU / MUSIC PLAYER (.play / .song) + API STABIL
             // =========================================================================
             if (text.toLowerCase().startsWith('.play') || text.toLowerCase().startsWith('.song')) {
                 let queryLagu = text.slice(5).trim();
@@ -265,19 +265,20 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                 }
 
                 // 🚀 PESAN INSTAN PERTAMA
-                await sock.sendMessage(from, { text: `🎵 *[MUSIC PLAYER]*\nSabar bree, lagi nyari lagu "${queryLagu}" di server... ⏳`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `🎵 *[MUSIC PLAYER]*\nSabar bree, lagi nyari lagu "${queryLagu}"... ⏳`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    const searchRes = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(queryLagu)}&filter=videos`);
+                    const searchRes = await fetch(`https://invidious.jing.rocks/api/v1/search?q=${encodeURIComponent(queryLagu)}&type=video`);
                     const searchJson = await searchRes.json();
 
-                    if (!searchJson.items || searchJson.items.length === 0) {
+                    if (!searchJson || searchJson.length === 0) {
                         await sock.sendMessage(from, { text: `❌ Wah, lagu "${queryLagu}" gak ketemu. Coba judul lain, bro!` }, { quoted: msg });
                         return;
                     }
 
-                    const videoTop = searchJson.items[0];
-                    const videoUrl = `https://www.youtube.com/watch?v=${videoTop.id}`;
+                    const videoTop = searchJson[0];
+                    const videoId = videoTop.videoId;
+                    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
                     const videoTitle = videoTop.title;
 
                     await sock.sendMessage(from, { text: `📥 Ketemu: *${videoTitle}*\nSedang mengunduh file audio MP3-nya...` }, { quoted: msg });
@@ -305,10 +306,9 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                             caption: `🎶 *BERHASIL MEMUTAR LAGU*\n\n📌 Judul: *${videoTitle}*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
                         }, { quoted: msg });
 
-                        // Tambah Bonus XP
                         await tambahXP(sock, from, userJid, 25, msg);
                     } else {
-                        await sock.sendMessage(from, { text: '❌ Gagal mengekstrak audio lagu tersebut.' }, { quoted: msg });
+                        await sock.sendMessage(from, { text: '❌ Gagal mengekstrak audio lagu tersebut dari server pengunduh.' }, { quoted: msg });
                     }
 
                 } catch (err) {
