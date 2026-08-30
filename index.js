@@ -2,6 +2,7 @@ const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysocket
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
+const qrcode = require('qrcode-terminal'); // ⬅️ TAMBAHAN LIBRARY QR TERMINAL
 
 // =========================================================================
 // 📌 KONFIGURASI TARGET GRUP & DATABASE LEVELING
@@ -59,14 +60,20 @@ async function startBot() {
     const sock = makeWASocket({
         auth: state,
         logger: pino({ level: 'silent' }),
-        printQRInTerminal: true // ⬅️ DIUBAH JADI TRUE SUPAYA QR KELUAR DI LOGS RAILWAY
+        printQRInTerminal: false // Kita handle manual pakai qrcode-terminal di bawah
     });
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
         
+        // 📌 CETAK QR CODE LANGSUNG KE LOGS / TERMINAL RAILWAY
+        if (qr) {
+            console.log('--- SCAN QR CODE DI BAWAH INI ---');
+            qrcode.generate(qr, { small: true });
+        }
+
         if (connection === 'open') {
             console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GROQ AI + LEVELING + DOWNLOADER + FEMBOY)!');
         } else if (connection === 'close') {
