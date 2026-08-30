@@ -2,7 +2,7 @@ const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysocket
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
-const qrcode = require('qrcode-terminal'); // ⬅️ TAMBAHAN LIBRARY QR TERMINAL
+const qrcode = require('qrcode-terminal');
 
 // =========================================================================
 // 📌 KONFIGURASI TARGET GRUP & DATABASE LEVELING
@@ -60,7 +60,7 @@ async function startBot() {
     const sock = makeWASocket({
         auth: state,
         logger: pino({ level: 'silent' }),
-        printQRInTerminal: false // Kita handle manual pakai qrcode-terminal di bawah
+        printQRInTerminal: false
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -68,9 +68,9 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // 📌 CETAK QR CODE LANGSUNG KE LOGS / TERMINAL RAILWAY
+        // Cetak QR Code versi kecil agar rapi di terminal/logs
         if (qr) {
-            console.log('--- SCAN QR CODE DI BAWAH INI ---');
+            console.log('📌 SCAN QR CODE DI BAWAH INI:');
             qrcode.generate(qr, { small: true });
         }
 
