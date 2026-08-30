@@ -59,18 +59,25 @@ async function startBot() {
     const sock = makeWASocket({
         auth: state,
         logger: pino({ level: 'silent' }),
-        printQRInTerminal: false
+        printQRInTerminal: true // ⬅️ DIUBAH JADI TRUE SUPAYA QR KELUAR DI LOGS RAILWAY
     });
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', (update) => {
-        const { connection } = update;
+        const { connection, lastDisconnect } = update;
+        
         if (connection === 'open') {
             console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GROQ AI + LEVELING + DOWNLOADER + FEMBOY)!');
         } else if (connection === 'close') {
-            console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
-            startBot();
+            const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
+            console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
+            
+            if (shouldReconnect) {
+                startBot();
+            } else {
+                console.log('⚠️ Sesi terhapus atau logout. Silakan hapus folder auth_info dan scan QR baru.');
+            }
         }
     });
 
