@@ -2,7 +2,6 @@ const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysocket
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
-const qrcode = require('qrcode-terminal');
 
 // =========================================================================
 // 📌 KONFIGURASI TARGET GRUP & DATABASE LEVELING
@@ -68,10 +67,13 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // Cetak QR Code versi kecil agar rapi di terminal/logs
+        // 📌 LINK QR CODE GAMBAR (KLIK LINK DI TERMINAL BUAT BUKA DI BROWSER HP/LAPTOP)
         if (qr) {
-            console.log('📌 SCAN QR CODE DI BAWAH INI:');
-            qrcode.generate(qr, { small: true });
+            const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
+            console.log('\n======================================================');
+            console.log('🔗 BUKA LINK INI DI BROWSER BUAT SCAN QR CODE:');
+            console.log(qrImageUrl);
+            console.log('======================================================\n');
         }
 
         if (connection === 'open') {
@@ -114,7 +116,7 @@ async function startBot() {
 Semoga betah di keluarga anime ini ♡
 ╰─────────── ✦ ───────────╯
 
-🌸 𝗬𝗼𝗿𝗼𝘀𝗵𝗶 𝗢𝗻𝗲𝗴𝗮𝗶𝘀𝗵𝗶𝗺𝗮𝘀𝘂! 🌸`;
+🌸 𝗬𝗼𝒓𝒐𝘀𝒉𝗶 𝗢𝗻𝗲𝗴𝒂𝒊𝘀𝗵𝒊𝒎𝒂𝘀𝒖! 🌸`;
 
                 const imagePath = path.join(__dirname, 'gambar.jpeg');
 
