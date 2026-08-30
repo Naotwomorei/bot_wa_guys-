@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hukum Newton I, II, III - Fisika Teknik UNIMED</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0e17;
+            --card-bg: rgba(22, 31, 49, 0.7);
+            --card-border: rgba(0, 242, 254, 0.2);
+            --neon-blue: #00f2fe;
+            --neon-cyan: #4facfe;
+            --neon-purple: #9d4edd;
+            --neon-gold: #ffb703;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Background Grid FX */
+        .bg-grid {
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            top: -50%;
+            left: -50%;
+            background-image: 
+                linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            transform: rotate(-12deg);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+            box-shadow: 0 0 10px var(--neon-blue);
+            z-index: 100;
+            transition: width 0.4s ease;
+        }
+
+        /* Container Slide */
+        .slide-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            z-index: 2;
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            padding: 60px 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.6s ease, transform 0.6s ease;
+            transform: scale(0.95) translateY(20px);
+        }
+
+        .slide.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1) translateY(0);
+        }
+
+        /* Typography & Glow */
+        .tag {
+            font-family: 'Fira Code', monospace;
+            color: var(--neon-blue);
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            display: inline-block;
+            text-shadow: 0 0 8px var(--neon-blue);
+        }
+
+        h1 {
+            font-size: 3.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 30%, var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+            line-height: 1.2;
+        }
+
+        h2 {
+            font-size: 2.2rem;
+            color: #fff;
+            margin-bottom: 25px;
+            text-shadow: 0 0 15px rgba(255,255,255,0.2);
+        }
+
+        p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.3);
+            transform: translateY(-5deg);
+        }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+
+        /* Formula Box */
+        .formula-box {
+            background: rgba(0, 242, 254, 0.1);
+            border: 2px dashed var(--neon-blue);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            font-family: 'Fira Code', monospace;
+            font-size: 2rem;
+            color: var(--neon-blue);
+            text-shadow: 0 0 12px var(--neon-blue);
+            margin: 20px 0;
+        }
+
+        /* List Items */
+        ul { list-style: none; }
+        ul li {
+            position: relative;
+            padding-left: 25px;
+            margin-bottom: 12px;
+            color: var(--text-main);
+        }
+        ul li::before {
+            content: "▹";
+            position: absolute;
+            left: 0;
+            color: var(--neon-blue);
+            font-size: 1.2rem;
+        }
+
+        /* Authors Badge */
+        .author-badge {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+        .author-chip {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 18px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+        }
+        .author-chip span { color: var(--neon-cyan); font-weight: 600; }
+
+        /* Controls UI */
+        .nav-controls {
+            position: fixed;
+            bottom: 30px;
+            right: 40px;
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+        }
+        .btn-nav {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        .btn-nav:hover {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 15px var(--neon-blue);
+        }
+
+        .slide-counter {
+            position: fixed;
+            bottom: 40px;
+            left: 40px;
+            font-family: 'Fira Code', monospace;
+            color: var(--text-muted);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-grid"></div>
+    <div class="progress-bar" id="progressBar"></div>
+
+    <div class="slide-container">
+
+        <div class="slide active">
+            <span class="tag">MAKALAH FISIKA TEKNIK</span>
+            <h1>Hukum Newton I, II, & III</h1>
+            <p style="font-size: 1.3rem; margin-bottom: 25px;">Tinjauan Historis-Filosofis, Formulasi Vektor, dan Implementasi Rekayasa dalam Fisika Teknik</p>
+            
+            <div class="glass-card" style="margin-bottom: 20px;">
+                <p style="color: var(--neon-cyan); margin-bottom: 5px; font-weight: 600;">Dosen Pengampu:</p>
+                <p style="color: #fff;">Mega Silfia Dewy, M.Pd.T.</p>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Disusun Oleh Kelompok:</p>
+            <div class="author-badge">
+                <div class="author-chip">Ikram Fahmi <span>(5251131024)</span></div>
+                <div class="author-chip">Sultan Ahmad Fariz <span>(5153331001)</span></div>
+                <div class="author-chip">Yosia Simanullang <span>(5252431017)</span></div>
+                <div class="author-chip">Satrio Aritonang <span>(5253131024)</span></div>
+            </div>
+            <p style="margin-top: 20px; font-size: 0.85rem;">Pendidikan Teknik Elektro | Universitas Negeri Medan | 2026</p>
+        </div>
+
+        <div class="slide">
+            <span class="tag">BAB I — PENDAHULUAN</span>
+            <h2>Mengapa Ini Penting & Tujuan Penulisan</h2>
+            <div class="grid-2">
+                <div class="glass-card">
+                    <h3 style="color: var(--neon-cyan); margin-bottom: 15px;">Mengapa Ini Penting?</h3>
+                    <p>Motor listrik, aktuator, dan sistem kontrol otomasi mengubah energi listrik menjadi gerak mekanis — dasar dari semua itu adalah **dinamika Newton**.</p>
+                    <p style="margin-top: 10px;">Isaac Newton merumuskan tiga hukum gerak dalam *Philosophiæ Naturalis Principia Mathematica* (1687) untuk menjelaskan respon benda terhadap gaya.</p>
+                </div>
+                <div class="glass-card">
+                    <h3 style="color: var(--neon-blue); margin-bottom: 15px;">Tujuan Penulisan</h3>
+                    <ul>
+                        <li><strong>01. Menjelaskan Konsep Gaya:</strong> Pengertian, jenis-jenis gaya, dan kerangka acuan inersia.</li>
+                        <li><strong>02. Menganalisis Ketiga Hukum:</strong> Membedah bunyi hukum, persamaan matematis, dan sifat uniknya.</li>
+                        <li><strong>03. Menguraikan Penerapan:</strong> Mengaitkan dengan aplikasi rekayasa Teknik Elektro.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="tag">BAB II — LANDASAN TEORI</span>
+            <h2>Pengertian & Klasifikasi Gaya</h2>
+            <p style="margin-bottom: 20px;">Gaya adalah dorongan/tarikan akibat interaksi antarbenda. Gaya merupakan **besaran vektor** (1 N = 1 kg·m/s²).</p>
+            <div class="grid-2">
+                <div class="glass-card">
+                    <h3 style="color: var(--neon-blue); margin-bottom: 10px;">Gaya Sentuh (Contact Forces)</h3>
+                    <ul>
+                        <li><strong>Gaya Normal (N):</strong> Tegak lurus bidang sentuh.</li>
+                        <li><strong>Gaya Gesek (f):</strong> Berlawanan gerak (Statis $f_s$ & Kinetis $f_k$).</li>
+                        <li><strong>Tegangan Tali (T):</strong> Gaya tarik pada tali/kawat tegang.</li>
+                        <li><strong>Gaya Pegas ($F_p$):</strong> Hukum Hooke ($F = -k \cdot \Delta x$).</li>
+                    </ul>
+                </div>
+                <div class="glass-card">
+                    <h3 style="color: var(--neon-purple); margin-bottom: 10px;">Gaya Tak Sentuh (Field Forces)</h3>
+                    <ul>
+                        <li><strong>Gaya Gravitasi (W):</strong> Gaya berat ($W = m \cdot g$), menuju pusat bumi.</li>
+                        <li><strong>Gaya Elektromagnetik:</strong> Gaya Coulomb & Lorentz (dasar motor/generator).</li>
+                        <li><strong>Gaya Nuklir:</strong> Gaya kuat & lemah pada skala subatomik.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="tag">BAB II — LANDASAN TEORI</span>
+            <h2>Kerangka Acuan Inersia vs Non-Inersia</h2>
+            <div class="grid-2">
+                <div class="glass-card">
+                    <h3 style="color: var(--neon-cyan);">A. Kerangka Inersia (Inertial)</h3>
+                    <p style="margin-top: 10px;">Diam atau bergerak dengan kecepatan konstan (arah & besar tetap).</p>
+                    <ul style="margin-top: 15px;">
+                        <li>Hukum I Newton berlaku penuh.</li>
+                        <li>Tanpa gaya luar netto, percepatan $a = 0$.</li>
+                        <li>*Contoh:* Pengamat diam di tanah, atau di dalam kereta berpelesat lurus konstan.</li>
+                    </ul>
+                </div>
+                <div class="glass-card">
+                    <h3 style="color: var(--neon-gold);">B. Kerangka Non-Inersia (Non-Inertial)</h3>
+                    <p style="margin-top: 10px;">Mengalami percepatan (linier maupun rotasi).</p>
+                    <ul style="margin-top: 15px;">
+                        <li>Hukum Newton tidak berlaku langsung.</li>
+                        <li>Membutuhkan **Gaya Fiktif (Pseudo Forces)** seperti gaya Sentrifugal & Coriolis.</li>
+                        <li>*Contoh:* Mobil direm mendadak, komidi putar.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="tag">HUKUM I NEWTON</span>
+            <h2>Prinsip Inersia (Kelembaman)</h2>
+            <p><i>“Setiap benda akan tetap diam atau bergerak lurus beraturan, kecuali ada gaya luar netto yang memaksanya untuk berubah.”</i></p>
+            
+            <div class="formula-box">ΣF = 0</div>
+
+            <div class="grid-3">
+                <div class="glass-card">
+                    <h4>Keseimbangan Statis</h4>
+                    <p style="color: var(--neon-cyan); font-weight: bold; margin-top: 5px;">v = 0, a = 0</p>
+                    <p style="font-size: 0.9rem;">Benda diam selamanya.</p>
+                </div>
+                <div class="glass-card">
+                    <h4>Keseimbangan Dinamis</h4>
+                    <p style="color: var(--neon-blue); font-weight: bold; margin-top: 5px;">v ≠ 0 (konstan), a = 0</p>
+                    <p style="font-size: 0.9rem;">Gerak Lurus Beraturan (GLB).</p>
+                </div>
+                <div class="glass-card">
+                    <h4>Relevansi Keteknikan</h4>
+                    <p style="font-size: 0.9rem; margin-top: 5px;">Mendasi **Statika Struktur** — merancang pondasi menara, tiang listrik, dan struktur mekatronika agar aman.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="tag">BAB III — PENERAPAN</span>
+            <h2>Contoh Penerapan Hukum I Newton</h2>
+            <div class="grid-2">
+                <div class="glass-card">
+                    <h3 style="color: var(--neon-blue); margin-bottom: 10px;">1. Bus Direm Mendadak</h3>
+                    <p style="font-size: 0.95rem;">Tubuh penumpang melaju setara kecepatan bus. Saat direm mendadak, gaya rem bekerja pada bus, bukan tubuh penumpang. Tubuh mempertahankan kecepatannya sehingga terdorong ke depan. Ini menjadi dasar desain <strong>Seat Belt & Airbag</strong>.</p>
+                </div>
+                <div class="glass-card">
+                    <h3 style="color: var(--neon-cyan); margin-bottom: 10px;">2. Taplak Meja Ditarik Cepat</h3>
+                    <p style="font-size: 0.95rem;">Piring mula-mula diam ($\Sigma F = 0$). Ketika taplak ditarik sangat cepat, waktu kontak ($t$) sangat singkat sehingga impuls gesek minim. Piring mempertahankan kondisi diamnya (kelembaman).</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="tag">HUKUM II NEWTON</span>
+            <h2>Dinamika Gerak dan Percepatan</h2>
+            <p><i>“Percepatan berbanding lurus dengan resultan gaya, searah gaya tersebut, dan berbanding terbalik dengan massa benda.”</i></p>
+
+            <div class="formula-box">ΣF = m · a &nbsp;&nbsp;|&nbsp;&nbsp; a = ΣF / m</div>
+
+            <div class="grid-2">
+                <div class="glass-card">
+                    <h4 style="color: var(--neon-cyan);">Pengaruh Gaya (F)</h4>
+                    <p>Makin besar gaya netto yang bekerja, makin besar percepatan yang dihasilkan pada benda.</p>
+                </div>
+                <div class="glass-card">
+                    <h4 style="color: var(--neon-purple);">Pengaruh Massa (m)</h4>
+                    <p>Makin besar massa benda, makin kecil percepatan yang dihasilkan untuk gaya yang sama — bentuk nyata dari inersia.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="tag">HUKUM III NEWTON</span>
+            <h2>Prinsip Aksi – Reaksi</h2>
+            <p><i>“Setiap gaya aksi pada benda kedua akan dibalas dengan gaya reaksi yang sama besar dan berlawanan arah pada benda pertama.”</i></p>
+
+            <div class="formula-box">F_aksi = -F_reaksi</div>
+
+            <div class="grid-2">
+                <div class="glass-card">
+                    <h4 style="color: var(--neon-gold); margin-bottom: 10px;">4 Karakteristik Utama:</h4>
+                    <ul>
+                        <li>Sama besar (magnitudo identik).</li>
+                        <li>Berlawanan arah ($180^\circ$).</li>
+                        <li>Bekerja pada <strong>2 benda berbeda</strong>.</li>
+                        <li>Segaris kerja & simultan.</li>
+                    </ul>
+                </div>
+                <div class="glass-card" style="border-color: rgba(255, 77, 77, 0.4);">
+                    <h4 style="color: #ff4d4d; margin-bottom: 10px;">Peringatan Miskonsepsi:</h4>
+                    <p style="font-size: 0.9rem;">Gaya Normal ($N$) & Gaya Berat ($W$) pada benda di atas meja **BUKAN** pasangan aksi-reaksi karena bekerja pada 1 benda yang sama!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="tag">APLIKASI REKAYASA</span>
+            <h2>Hukum Newton dalam Teknik Elektro</h2>
+            <div class="grid-2">
+                <div class="glass-card">
+                    <h4 style="color: var(--neon-blue);">1. Motor Listrik & Torsi</h4>
+                    <p style="font-size: 0.9rem;">Torsi motor ($\tau = I \cdot \alpha$) adalah analog rotasi dari $F = m \cdot a$. Momen inersia beban menentukan percepatan putaran poros.</p>
+                </div>
+                <div class="glass-card">
+                    <h4 style="color: var(--neon-cyan);">2. Gaya Lorentz Konduktor</h4>
+                    <p style="font-size: 0.9rem;">Konduktor berarus dalam medan magnet mengalami gaya $F = BIL$. Reaksi terhadap gaya ini pada sumber medan adalah wujud Hukum III.</p>
+                </div>
+                <div class="glass-card" style="margin-top: 15px;">
+                    <h4 style="color: var(--neon-purple);">3. Peredam Getaran (Damper)</h4>
+                    <p style="font-size: 0.9rem;">Sistem peredam pada panel kontrol menggunakan $\Sigma F = 0$ untuk meredam getaran akibat gaya eksternal.</p>
+                </div>
+                <div class="glass-card" style="margin-top: 15px;">
+                    <h4 style="color: var(--neon-gold);">4. Aktuator & Robotika</h4>
+                    <p style="font-size: 0.9rem;">Aktuator pneumatik/piezoelektrik pada lengan robot bekerja memanfaatkan aksi-reaksi untuk gerak presisi.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="tag">PENUTUP</span>
+            <h1>Terima Kasih</h1>
+            <p style="font-size: 1.4rem; color: var(--neon-cyan); margin-bottom: 30px;"><i>“Setiap gerak menyimpan hukum. Setiap hukum menyimpan rekayasa.”</i></p>
+            <div class="glass-card">
+                <p style="color: var(--text-muted); margin-bottom: 10px;">Disampaikan oleh Tim Mahasiswa Pendidikan Teknik Elektro UNIMED:</p>
+                <p style="color: #fff; font-weight: 600;">Ikram Fahmi • Sultan Ahmad Fariz • Yosia Simanullang • Satrio Aritonang</p>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="slide-counter" id="slideCounter">01 / 10</div>
+    <div class="nav-controls">
+        <button class="btn-nav" onclick="prevSlide()">&#8592;</button>
+        <button class="btn-nav" onclick="nextSlide()">&#8594;</button>
+    </div>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const progressBar = document.getElementById('progressBar');
+        const slideCounter = document.getElementById('slideCounter');
+        let currentSlide = 0;
+
+        function updateSlide() {
+            slides.forEach((slide, index) => {
+                slide.classList.remove('active');
+                if(index === currentSlide) {
+                    slide.classList.add('active');
+                }
+            });
+
+            // Update Progress Bar
+            const progress = ((currentSlide + 1) / slides.length) * 100;
+            progressBar.style.width = `${progress}%`;
+
+            // Update Counter
+            const currentFormatted = String(currentSlide + 1).padStart(2, '0');
+            const totalFormatted = String(slides.length).padStart(2, '0');
+            slideCounter.textContent = `${currentFormatted} / ${totalFormatted}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        // Keyboard Controls
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            }
+        });
+
+        // Init
+        updateSlide();
+    </script>
+</body>
+</html>

@@ -67,7 +67,7 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection } = update;
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GROQ AI + LEVELING + DOWNLOADER)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GROQ AI + LEVELING + DOWNLOADER + FEMBOY)!');
         } else if (connection === 'close') {
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali...');
             startBot();
@@ -164,7 +164,9 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 📊 *SISTEM LEVELING & XP*
 ▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
 ▫️ \`!top\` atau \`.leaderboard\` — Menampilkan 5 besar member dengan level tertinggi.
-💡 *Info:* Kirim chat aktif di grup untuk dapat XP (+10). Stiker tidak dihitung dan ada jeda anti-spam 3 detik!
+
+💅 *FITUR SPESIAL GRUP*
+▫️ \`!femboy\` atau \`.femboy\` — Random 5 orang korban femboy harian (tanpa duplikat sampai habis)!
 
 📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
 Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
@@ -185,7 +187,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // G. FITUR GROQ AI (SUPER CEPAT & ANTI LIMIT)
+            // G. FITUR GROQ AI (SUPER CEPAT & HEMAT TOKEN)
             // =========================================================================
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
@@ -215,7 +217,8 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                         return;
                     }
 
-                    const systemPrompt = "Kamu adalah asisten AI di grup WhatsApp anak sekolah dan mahasiswa. Jawablah pertanyaan berikut dengan akurat dan pintar, namun gunakan bahasa gaul Gen Z Indonesia yang santai, akrab, pakai kata lu-gue/bro, sedikit humor tongkrongan kampus, tapi tetap informatif.";
+                    // System prompt diringkas agar tidak boros token (menghindari TPM limit)
+                    const systemPrompt = "Lu asisten AI di grup WA anak sekolah & mahasiswa. Jawab akurat tapi santai pakai gaya bahasa gaul Gen Z (lu-gue/bro) dan humor tongkrongan.";
 
                     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                         method: 'POST',
@@ -241,7 +244,6 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                         return;
                     }
 
-                    // Penarikan teks fleksibel agar tidak nyangkut
                     let jawabanAI = 
                         data.choices?.[0]?.message?.content || 
                         data.choices?.[0]?.text || 
@@ -264,7 +266,63 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE (Kirim link langsung)
+            // I. FITUR RANDOM 5 ORANG FEMBOY HARIAN (ANTI DUPLIKASI)
+            // =========================================================================
+            if (text.toLowerCase() === '!femboy' || text.toLowerCase() === '.femboy') {
+                try {
+                    const groupMetadata = await sock.groupMetadata(from);
+                    const participants = groupMetadata.participants.map(p => p.id);
+
+                    const femboyFile = './database_femboy.json';
+                    let femboyDB = { sisaMember: [], sudahKena: [] };
+
+                    if (fs.existsSync(femboyFile)) {
+                        femboyDB = JSON.parse(fs.readFileSync(femboyFile, 'utf-8'));
+                    }
+
+                    if (femboyDB.sisaMember.length < 5) {
+                        femboyDB.sisaMember = [...participants];
+                        femboyDB.sudahKena = [];
+                    }
+
+                    let shuffled = [...femboyDB.sisaMember];
+                    for (let i = shuffled.length - 1; i > 0; i--) {
+                        let j = Math.floor(Math.random() * (i + 1));
+                        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                    }
+
+                    let terpilih = shuffled.slice(0, 5);
+                    femboyDB.sisaMember = shuffled.slice(5);
+                    femboyDB.sudahKena.push(...terpilih);
+
+                    fs.writeFileSync(femboyFile, JSON.stringify(femboyDB, null, 2));
+
+                    let teksFemboy = `🚨 *PENGUMUMAN FEMBOY HARIAN* 🚨\n\nHari ini, 5 orang terpilih secara random mutlak dinobatkan sebagai *Femboy Certified* di grup ini! 💅✨\n\n`;
+                    let mentionList = [];
+
+                    terpilih.forEach((jid, index) => {
+                        const tagNumber = jid.split('@')[0];
+                        const emojiRank = ['👑', '🥈', '🥉', '✨', '💀'][index];
+                        teksFemboy += `${emojiRank} @${tagNumber}\n`;
+                        mentionList.push(jid);
+                    });
+
+                    teksFemboy += `\n_Selamat ya buat kalian berlima, dipersiapkan mentalnya wkwk! 🗿_`;
+
+                    await sock.sendMessage(from, { 
+                        text: teksFemboy, 
+                        mentions: mentionList 
+                    }, { quoted: msg });
+
+                } catch (err) {
+                    console.error('Error fitur femboy:', err);
+                    await sock.sendMessage(from, { text: '⚠️ Gagal mengocok daftar femboy, pastikan bot adalah admin grup!' }, { quoted: msg });
+                }
+                return;
+            }
+
+            // =========================================================================
+            // H. DOWNLOADER YOUTUBE & PLATFORM LAINNYA
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
                 await sock.sendMessage(from, { text: `⏳ *[YouTube Downloader]*\nSabar bree, sedang memproses video/audio dari link YouTube...`, mentions: [userJid] }, { quoted: msg });
@@ -290,7 +348,6 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                 return;
             }
 
-            // C. PROSES DOWNLOADER TIKTOK (+25 XP BONUS)
             if (cleanUrl && cleanUrl.includes('tiktok.com')) {
                 await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]*\nSedang mengunduh media...' }, { quoted: msg });
                 const res = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`);
@@ -314,7 +371,6 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                 return;
             }
 
-            // D. PROSES DOWNLOADER MULTI-PLATFORM VIA COBALT API (+25 XP BONUS)
             else if (
                 cleanUrl && (
                     cleanUrl.includes('instagram.com') || 
@@ -417,12 +473,12 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             // ⏳ E. FILTER 2: COOLDOWN 3 DETIK UNTUK PENAMBAHAN XP CHAT BIASA (+10 XP)
             // =========================================================================
             const now = Date.now();
-            const cooldownTime = 3000; // 3000 milidetik = 3 detik
+            const cooldownTime = 3000; // 3 detik
 
             if (cooldownXP[userJid]) {
                 const selisihWaktu = now - cooldownXP[userJid];
                 if (selisihWaktu < cooldownTime) {
-                    return; // Abaikan jika belum lewat 3 detik
+                    return; 
                 }
             }
 
