@@ -77,7 +77,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (LLAMA 3.3 70B + YOUTUBE MP3 STABLE)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (LLAMA 3.3 70B + COBALT YOUTUBE ENGINE)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -183,7 +183,7 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
 Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
-▫️ 🎵 *YouTube MP3* (Kirim link YouTube, langsung dikirim file lagunya)
+▫️ 🎬 *YouTube* (Kirim link YouTube, diproses via Cobalt Engine)
 ▫️ 🎵 *TikTok* (Video / Foto Carousel)
 ▫️ 📸 *Instagram* (Reels / Post / Foto)
 ▫️ 📘 *Facebook*
@@ -267,46 +267,57 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE MP3 (MENGGUNAKAN AXIOS & MULTI-FALLBACK)
+            // H. DOWNLOADER YOUTUBE & SOSMED (MENGGUNAKAN COBALT ENGINE)
             // =========================================================================
-            if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
-                await sock.sendMessage(from, { text: `⏳ *[YouTube MP3]*\nSabar bree, bot lagi convert video YouTube jadi file MP3...`, mentions: [userJid] }, { quoted: msg });
-
-                let audioUrl = null;
-                let audioTitle = 'YouTube Audio';
+            if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be') || cleanUrl.includes('instagram.com') || cleanUrl.includes('facebook.com') || cleanUrl.includes('pin.it') || cleanUrl.includes('pinterest.com'))) {
+                await sock.sendMessage(from, { text: `⏳ *[Media Downloader]*\nSabar bree, bot lagi proses link via Cobalt Engine...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    // Coba Endpoint 1
-                    try {
-                        const res1 = await axios.get(`https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(cleanUrl)}`, { timeout: 10000 });
-                        audioUrl = res1.data?.data?.dl || res1.data?.data?.download || res1.data?.dl || res1.data?.url;
-                        if (res1.data?.data?.title) audioTitle = res1.data.data.title;
-                    } catch (e) { /* Lanjut fallback */ }
+                    const response = await axios.post('https://api.cobalt.tools/api/json', { 
+                        url: cleanUrl,
+                        downloadMode: 'auto'
+                    }, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 15000
+                    });
 
-                    // Coba Endpoint 2 (Cadangan)
-                    if (!audioUrl) {
-                        try {
-                            const res2 = await axios.get(`https://itzpire.com/download/ytmp3?url=${encodeURIComponent(cleanUrl)}`, { timeout: 10000 });
-                            audioUrl = res2.data?.data?.download || res2.data?.result?.download || res2.data?.data?.url;
-                            if (res2.data?.data?.title) audioTitle = res2.data.data.title;
-                        } catch (e) { /* Lanjut fallback */ }
-                    }
+                    const data = response.data;
 
-                    if (audioUrl) {
-                        await sock.sendMessage(from, { 
-                            audio: { url: audioUrl }, 
-                            mimetype: 'audio/mp4',
-                            ptt: false,
-                            caption: `🎵 *Berhasil!* Lagu *${audioTitle}* sukses diunduh.\n👤 Diminta oleh: @${userJid.split('@')[0]}`
-                        }, { quoted: msg });
+                    if (data && data.url) {
+                        const isAudio = data.url.includes('.mp3') || data.url.includes('.m4a') || data.url.includes('audio');
+                        const isImage = data.url.includes('.jpg') || data.url.includes('.png') || data.url.includes('.webp');
 
+                        if (isAudio) {
+                            await sock.sendMessage(from, { 
+                                audio: { url: data.url }, 
+                                mimetype: 'audio/mp4',
+                                ptt: false,
+                                caption: `🎵 *Audio Berhasil Diunduh!*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                            }, { quoted: msg });
+                        } else if (isImage) {
+                            await sock.sendMessage(from, { image: { url: data.url }, caption: `✅ Foto berhasil diunduh!` }, { quoted: msg });
+                        } else {
+                            await sock.sendMessage(from, { video: { url: data.url }, caption: `✅ Media berhasil diunduh!\n👤 Diminta oleh: @${userJid.split('@')[0]}` }, { quoted: msg });
+                        }
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    } else if (data && data.picker && data.picker.length > 0) {
+                        for (const item of data.picker) {
+                            if (item.type === 'photo') {
+                                await sock.sendMessage(from, { image: { url: item.url } }, { quoted: msg });
+                            } else if (item.type === 'video') {
+                                await sock.sendMessage(from, { video: { url: item.url } }, { quoted: msg });
+                            }
+                        }
                         await tambahXP(sock, from, userJid, 25, msg);
                     } else {
-                        await sock.sendMessage(from, { text: '❌ Gagal mengkonversi lagu tersebut. Coba link video YouTube yang lain ya, bro!' }, { quoted: msg });
+                        await sock.sendMessage(from, { text: '❌ Gagal mengambil media melalui Cobalt Engine. Coba link yang lain ya!' }, { quoted: msg });
                     }
                 } catch (err) {
-                    console.error('Error YouTube MP3:', err);
-                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala saat memproses audio YouTube. Coba beberapa saat lagi!' }, { quoted: msg });
+                    console.error('Error Cobalt Downloader:', err);
+                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala koneksi ke server Cobalt. Coba beberapa saat lagi!' }, { quoted: msg });
                 }
                 return;
             }
@@ -334,55 +345,6 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     }
                 } catch (e) {
                     await sock.sendMessage(from, { text: '❌ Gagal terhubung ke server TikTok downloader.' }, { quoted: msg });
-                }
-                return;
-            }
-
-            else if (
-                cleanUrl && (
-                    cleanUrl.includes('instagram.com') || 
-                    cleanUrl.includes('facebook.com') || 
-                    cleanUrl.includes('pin.it') ||
-                    cleanUrl.includes('pinterest.com')
-                )
-            ) {
-                await sock.sendMessage(from, { text: `⏳ *[Media Downloader]*\nSedang memproses postingan/media...` }, { quoted: msg });
-
-                try {
-                    const response = await axios.post('https://api.cobalt.tools/api/json', { url: cleanUrl }, {
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        },
-                        timeout: 10000
-                    });
-
-                    const data = response.data;
-
-                    if (data) {
-                        if (data.url) {
-                            const isImage = data.url.includes('.jpg') || data.url.includes('.png') || data.url.includes('.webp');
-                            if (isImage) {
-                                await sock.sendMessage(from, { image: { url: data.url }, caption: '✅ Foto berhasil diunduh!' }, { quoted: msg });
-                            } else {
-                                await sock.sendMessage(from, { video: { url: data.url }, caption: '✅ Video berhasil diunduh!' }, { quoted: msg });
-                            }
-                        } else if (data.picker && data.picker.length > 0) {
-                            for (const item of data.picker) {
-                                if (item.type === 'photo') {
-                                    await sock.sendMessage(from, { image: { url: item.url } }, { quoted: msg });
-                                } else if (item.type === 'video') {
-                                    await sock.sendMessage(from, { video: { url: item.url } }, { quoted: msg });
-                                }
-                            }
-                        } else {
-                            await sock.sendMessage(from, { text: '❌ Gagal mengambil media dari link tersebut.' }, { quoted: msg });
-                            return;
-                        }
-                        await tambahXP(sock, from, userJid, 25, msg);
-                    }
-                } catch (e) {
-                    await sock.sendMessage(from, { text: '❌ Gagal terhubung ke server Cobalt downloader.' }, { quoted: msg });
                 }
                 return;
             }
