@@ -77,7 +77,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (YOUTUBE INSTANT LINK)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (YTMP3.GG / YTMP3.MOBI ENGINE)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -183,11 +183,11 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
 Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
-▫️ 🎬 *YouTube* (Kirim link YouTube, dapatkan link MP3 VVIP instan)
-▫️ 🎵 *TikTok* (Video / Foto Carousel otomatis)
-▫️ 📸 *Instagram* (Reels / Post / Foto otomatis)
-▫️ 📘 *Facebook* (otomatis)
-▫️ 📌 *Pinterest* (otomatis)
+▫️ 🎵 *YouTube MP3* (Kirim link YouTube, diproses via Ytmp3 Engine)
+▫️ 🎵 *TikTok* (Video / Foto Carousel)
+▫️ 📸 *Instagram* (Reels / Post / Foto)
+▫️ 📘 *Facebook*
+▫️ 📌 *Pinterest*
 
 Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
 
@@ -267,22 +267,39 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE JALUR VVIP (100% ANTI GAGAL)
+            // H. DOWNLOADER YOUTUBE MP3 (YTMP3.GG / YTMP3.MOBI SCRAPER ENGINE)
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
-                // Generate link y2mate bersih
-                const y2mateLink = `https://y2mate.com/id/youtube?url=${encodeURIComponent(cleanUrl)}`;
+                await sock.sendMessage(from, { text: `⏳ *[YouTube MP3]*\nSabar bree, bot lagi konversi audio via Ytmp3 Engine...`, mentions: [userJid] }, { quoted: msg });
 
-                const replyY2 = `🎵 *[YOUTUBE MP3 DOWNLOADER]* 🎵\n\nKarena server langsung sering diblokir, yuk pakai jalur VVIP aja bree! 🚀\n\nTinggal klik link biru di bawah ini, terus klik tombol *Download MP3* di webnya:\n\n🔗 ${y2mateLink}\n\n_— Diminta oleh @${userJid.split('@')[0]} (+25 XP)_`;
+                let audioUrl = null;
+                let audioTitle = 'YouTube Audio';
 
-                await sock.sendMessage(from, { 
-                    text: replyY2, 
-                    mentions: [userJid] 
-                }, { quoted: msg });
+                try {
+                    // Menggunakan endpoint scraper publik yang berbasis engine ytmp3.gg / ytmp3.mobi
+                    const apiRes = await axios.get(`https://api.vkrhost.eu.org/download/ytmp3?url=${encodeURIComponent(cleanUrl)}`, { timeout: 12000 });
+                    if (apiRes.data && apiRes.data.result) {
+                        audioUrl = apiRes.data.result.downloadUrl || apiRes.data.result.dl;
+                        audioTitle = apiRes.data.result.title || 'YouTube Audio';
+                    }
 
-                // Tetap beri bonus XP!
-                await tambahXP(sock, from, userJid, 25, msg);
-                return; // Stop di sini agar tidak diteruskan ke Cobalt
+                    if (audioUrl) {
+                        await sock.sendMessage(from, { 
+                            audio: { url: audioUrl }, 
+                            mimetype: 'audio/mp4',
+                            ptt: false,
+                            caption: `🎵 *Berhasil!* Lagu *${audioTitle}* sukses diunduh.\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                        }, { quoted: msg });
+
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    } else {
+                        await sock.sendMessage(from, { text: '❌ Gagal mengkonversi audio tersebut. Coba link video YouTube yang lain ya, bro!' }, { quoted: msg });
+                    }
+                } catch (err) {
+                    console.error('Error Ytmp3 Engine:', err);
+                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala saat memproses link YouTube. Coba beberapa saat lagi!' }, { quoted: msg });
+                }
+                return;
             }
 
             // =========================================================================
