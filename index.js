@@ -67,7 +67,6 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // 📌 LINK QR CODE GAMBAR (KLIK LINK DI TERMINAL BUAT BUKA DI BROWSER HP/LAPTOP)
         if (qr) {
             const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
             console.log('\n======================================================');
@@ -77,7 +76,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GROQ AI + LEVELING + DOWNLOADER + FEMBOY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GROQ AI + LEVELING + YOUTUBE STABIL)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -116,7 +115,7 @@ async function startBot() {
 Semoga betah di keluarga anime ini ♡
 ╰─────────── ✦ ───────────╯
 
-🌸 𝗬𝗼𝒓𝒐𝘀𝒉𝗶 𝗢𝗻𝗲𝗴𝒂𝒊𝘀𝗵𝒊𝒎𝒂𝘀𝒖! 🌸`;
+🌸 𝗬𝗼𝗿𝗼𝘀𝗵𝗶 𝗢𝗻𝗲𝗴𝗮𝗶𝘀𝗵𝗶𝗺𝗮𝘀𝘂! 🌸`;
 
                 const imagePath = path.join(__dirname, 'gambar.jpeg');
 
@@ -181,12 +180,9 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 ▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
 ▫️ \`!top\` atau \`.leaderboard\` — Menampilkan 5 besar member dengan level tertinggi.
 
-💅 *FITUR SPESIAL GRUP*
-▫️ \`!femboy\` atau \`.femboy\` — Random 5 orang korban femboy harian (tanpa duplikat sampai habis)!
-
 📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
 Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
-▫️ 🎬 *YouTube* (Kirim link langsung)
+▫️ 🎬 *YouTube* (Kirim link langsung - Sumber Stabil)
 ▫️ 🎵 *TikTok* (Video / Foto Carousel)
 ▫️ 📸 *Instagram* (Reels / Post / Foto)
 ▫️ 📘 *Facebook*
@@ -233,7 +229,6 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                         return;
                     }
 
-                    // System prompt diringkas agar tidak boros token (menghindari TPM limit)
                     const systemPrompt = "Lu asisten AI di grup WA anak sekolah & mahasiswa. Jawab akurat tapi santai pakai gaya bahasa gaul Gen Z (lu-gue/bro) dan humor tongkrongan.";
 
                     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -282,80 +277,32 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // I. FITUR RANDOM 5 ORANG FEMBOY HARIAN (ANTI DUPLIKASI)
-            // =========================================================================
-            if (text.toLowerCase() === '!femboy' || text.toLowerCase() === '.femboy') {
-                try {
-                    const groupMetadata = await sock.groupMetadata(from);
-                    const participants = groupMetadata.participants.map(p => p.id);
-
-                    const femboyFile = './database_femboy.json';
-                    let femboyDB = { sisaMember: [], sudahKena: [] };
-
-                    if (fs.existsSync(femboyFile)) {
-                        femboyDB = JSON.parse(fs.readFileSync(femboyFile, 'utf-8'));
-                    }
-
-                    if (femboyDB.sisaMember.length < 5) {
-                        femboyDB.sisaMember = [...participants];
-                        femboyDB.sudahKena = [];
-                    }
-
-                    let shuffled = [...femboyDB.sisaMember];
-                    for (let i = shuffled.length - 1; i > 0; i--) {
-                        let j = Math.floor(Math.random() * (i + 1));
-                        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-                    }
-
-                    let terpilih = shuffled.slice(0, 5);
-                    femboyDB.sisaMember = shuffled.slice(5);
-                    femboyDB.sudahKena.push(...terpilih);
-
-                    fs.writeFileSync(femboyFile, JSON.stringify(femboyDB, null, 2));
-
-                    let teksFemboy = `🚨 *PENGUMUMAN FEMBOY HARIAN* 🚨\n\nHari ini, 5 orang terpilih secara random mutlak dinobatkan sebagai *Femboy Certified* di grup ini! 💅✨\n\n`;
-                    let mentionList = [];
-
-                    terpilih.forEach((jid, index) => {
-                        const tagNumber = jid.split('@')[0];
-                        const emojiRank = ['👑', '🥈', '🥉', '✨', '💀'][index];
-                        teksFemboy += `${emojiRank} @${tagNumber}\n`;
-                        mentionList.push(jid);
-                    });
-
-                    teksFemboy += `\n_Selamat ya buat kalian berlima, dipersiapkan mentalnya wkwk! 🗿_`;
-
-                    await sock.sendMessage(from, { 
-                        text: teksFemboy, 
-                        mentions: mentionList 
-                    }, { quoted: msg });
-
-                } catch (err) {
-                    console.error('Error fitur femboy:', err);
-                    await sock.sendMessage(from, { text: '⚠️ Gagal mengocok daftar femboy, pastikan bot adalah admin grup!' }, { quoted: msg });
-                }
-                return;
-            }
-
-            // =========================================================================
-            // H. DOWNLOADER YOUTUBE & PLATFORM LAINNYA
+            // H. DOWNLOADER YOUTUBE (MENGGUNAKAN SUMBER WEB STABIL / COBALT API)
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
-                await sock.sendMessage(from, { text: `⏳ *[YouTube Downloader]*\nSabar bree, sedang memproses video/audio dari link YouTube...`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `⏳ *[YouTube Downloader]*\nSabar bree, sedang memproses video dari YouTube...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    const ytRes = await fetch(`https://api.vkrhost.eu.org/download/ytmp4?url=${encodeURIComponent(cleanUrl)}`);
-                    const ytJson = await ytRes.json();
+                    const response = await fetch('https://api.cobalt.tools/api/json', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ url: cleanUrl })
+                    });
 
-                    if (ytJson && ytJson.status && ytJson.result && ytJson.result.downloadUrl) {
+                    const data = await response.json();
+
+                    if (data && data.url) {
                         await sock.sendMessage(from, { 
-                            video: { url: ytJson.result.downloadUrl }, 
-                            caption: `✅ *Berhasil mengunduh video YouTube!*\n📌 Judul: *${ytJson.result.title || 'YouTube Video'}*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                            video: { url: data.url }, 
+                            caption: `✅ *Berhasil mengunduh video YouTube!*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
                         }, { quoted: msg });
 
                         await tambahXP(sock, from, userJid, 25, msg);
                     } else {
-                        await sock.sendMessage(from, { text: '❌ Gagal mengunduh video YouTube tersebut. Coba link video yang lain ya!' }, { quoted: msg });
+                        await sock.sendMessage(from, { text: '❌ Gagal mengunduh video YouTube tersebut melalui web source. Coba link video yang lain ya!' }, { quoted: msg });
                     }
                 } catch (err) {
                     console.error('Error YouTube Downloader:', err);
