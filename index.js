@@ -76,7 +76,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (GROQ AI + LEVELING + YOUTUBE STABIL)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (LLAMA 3.3 70B + LEVELING + YOUTUBE STABIL)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -173,8 +173,8 @@ Semoga betah di keluarga anime ini ♡
 
 Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan di grup ini:
 
-✨ *GROQ AI (ASISTEN ANAK GAUL - ANTI LIMIT)*
-▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab super cepat pake gaya tongkrongan anak kampus/sekolah!
+✨ *GROQ AI (LLAMA 3.3 70B - CERDAS & KILAT)*
+▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab super pintar pake gaya tongkrongan anak kampus/sekolah!
 
 📊 *SISTEM LEVELING & XP*
 ▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
@@ -182,7 +182,7 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
 Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
-▫️ 🎬 *YouTube* (Kirim link langsung - Sumber Stabil)
+▫️ 🎬 *YouTube* (Kirim link langsung)
 ▫️ 🎵 *TikTok* (Video / Foto Carousel)
 ▫️ 📸 *Instagram* (Reels / Post / Foto)
 ▫️ 📘 *Facebook*
@@ -199,7 +199,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // G. FITUR GROQ AI (SUPER CEPAT & HEMAT TOKEN)
+            // G. FITUR GROQ AI (MENGGUNAKAN LLAMA 3.3 70B - SANGAT PINTAR & CEPAT)
             // =========================================================================
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
@@ -218,7 +218,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                 }
 
                 // 🚀 PESAN INSTAN PERTAMA
-                await sock.sendMessage(from, { text: `⚡ Groq AI lagi mikir kilat buat @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `⚡ AI Llama 3.3 lagi mikir cerdas buat @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
 
                 await sock.sendPresenceUpdate('composing', from);
                 
@@ -229,7 +229,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                         return;
                     }
 
-                    const systemPrompt = "Lu asisten AI di grup WA anak sekolah & mahasiswa. Jawab akurat tapi santai pakai gaya bahasa gaul Gen Z (lu-gue/bro) dan humor tongkrongan.";
+                    const systemPrompt = "Lu adalah asisten AI yang sangat cerdas, kritis, tapi tetap asik dan santai pakai bahasa gaul Gen Z (lu-gue) di grup WhatsApp anak sekolah dan mahasiswa.";
 
                     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                         method: 'POST',
@@ -238,7 +238,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                             'Authorization': `Bearer ${apiKey}`
                         },
                         body: JSON.stringify({
-                            model: "allam-2-7b",
+                            model: "llama-3.3-70b-versatile", // ⬅️ MODEL DIUPGRADE JADI 70B YANG JAUH LEBIH PINTAR!
                             messages: [
                                 { role: "system", content: systemPrompt },
                                 { role: "user", content: pertanyaan }
@@ -262,7 +262,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                         data.message || 
                         JSON.stringify(data);
 
-                    const balasanFinal = `🤖 *[GROQ AI - GEN Z]*\n\n${jawabanAI}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
+                    const balasanFinal = `🤖 *[GROQ AI - LLAMA 3.3]*\n\n${jawabanAI}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
 
                     await sock.sendMessage(from, { 
                         text: balasanFinal, 
@@ -277,32 +277,38 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE (MENGGUNAKAN SUMBER WEB STABIL / COBALT API)
+            // H. DOWNLOADER YOUTUBE (MENGGUNAKAN SUMBER API ALTERNATIF STABIL)
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
                 await sock.sendMessage(from, { text: `⏳ *[YouTube Downloader]*\nSabar bree, sedang memproses video dari YouTube...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    const response = await fetch('https://api.cobalt.tools/api/json', {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ url: cleanUrl })
-                    });
+                    const ytRes = await fetch(`https://api.siputzx.my.id/api/d/ytmp4?url=${encodeURIComponent(cleanUrl)}`);
+                    const ytJson = await ytRes.json();
 
-                    const data = await response.json();
+                    let downloadUrl = ytJson?.data?.dl || ytJson?.data?.download || ytJson?.dl || ytJson?.url;
 
-                    if (data && data.url) {
+                    if (downloadUrl) {
                         await sock.sendMessage(from, { 
-                            video: { url: data.url }, 
-                            caption: `✅ *Berhasil mengunduh video YouTube!*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                            video: { url: downloadUrl }, 
+                            caption: `✅ *Berhasil mengunduh video YouTube!*\n📌 Judul: *${ytJson?.data?.title || 'YouTube Video'}*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
                         }, { quoted: msg });
 
                         await tambahXP(sock, from, userJid, 25, msg);
                     } else {
-                        await sock.sendMessage(from, { text: '❌ Gagal mengunduh video YouTube tersebut melalui web source. Coba link video yang lain ya!' }, { quoted: msg });
+                        const ytRes2 = await fetch(`https://itzpire.com/download/ytmp4?url=${encodeURIComponent(cleanUrl)}`);
+                        const ytJson2 = await ytRes2.json();
+                        let downloadUrl2 = ytJson2?.data?.download || ytJson2?.result?.download;
+
+                        if (downloadUrl2) {
+                            await sock.sendMessage(from, { 
+                                video: { url: downloadUrl2 }, 
+                                caption: `✅ *Berhasil mengunduh video YouTube!*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                            }, { quoted: msg });
+                            await tambahXP(sock, from, userJid, 25, msg);
+                        } else {
+                            await sock.sendMessage(from, { text: '❌ Gagal mengunduh video YouTube tersebut. Link mungkin dibatasi hak cipta atau berdurasi terlalu panjang!' }, { quoted: msg });
+                        }
                     }
                 } catch (err) {
                     console.error('Error YouTube Downloader:', err);
