@@ -76,7 +76,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (LLAMA 3.3 70B + YOUTUBE Y2MATE INSTANT LINK)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (LLAMA 3.3 70B + YOUTUBE MP3 DIRECT FILE)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -182,7 +182,7 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
 Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
-▫️ 🎵 *YouTube MP3* (Kirim link YouTube, langsung dikasih link y2mate anti-gagal)
+▫️ 🎵 *YouTube MP3* (Kirim link YouTube, langsung dikirim file lagunya ke grup)
 ▫️ 🎵 *TikTok* (Video / Foto Carousel)
 ▫️ 📸 *Instagram* (Reels / Post / Foto)
 ▫️ 📘 *Facebook*
@@ -275,21 +275,46 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE INSTAN LINK (Y2MATE REDIRECT)
+            // H. DOWNLOADER YOUTUBE MP3 DIRECT FILE (KIRIM AUDIO MATENG)
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
-                // Buat link instan y2mate berdasarkan link YouTube yang dikirim
-                const y2mateLink = `https://y2mate.gs/search?q=${encodeURIComponent(cleanUrl)}`;
+                await sock.sendMessage(from, { text: `⏳ *[YouTube MP3]*\nSabar bree, bot lagi proses convert & unduh file MP3-nya...`, mentions: [userJid] }, { quoted: msg });
 
-                const replyY2 = `🎵 *[YOUTUBE MP3 DOWNLOADER]* 🎵\n\nMau download lagu dari link YouTube tersebut? Gampang bree, tinggal klik link y2mate di bawah ini buat convert dan download MP3-nya secara instan:\n\n🔗 ${y2mateLink}\n\n_— Diminta oleh @${userJid.split('@')[0]}_`;
+                let audioUrl = null;
+                let audioTitle = 'YouTube Audio';
 
-                await sock.sendMessage(from, { 
-                    text: replyY2, 
-                    mentions: [userJid] 
-                }, { quoted: msg });
+                try {
+                    // Menggunakan endpoint API publik khusus audio langsung
+                    const response = await fetch(`https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(cleanUrl)}`);
+                    const json = await response.json();
 
-                // Tetap beri bonus XP ke member yang kirim link
-                await tambahXP(sock, from, userJid, 25, msg);
+                    audioUrl = json?.data?.dl || json?.data?.download || json?.dl || json?.url;
+                    if (json?.data?.title) audioTitle = json.data.title;
+
+                    // Fallback cadangan jika API pertama kosong
+                    if (!audioUrl) {
+                        const res2 = await fetch(`https://itzpire.com/download/ytmp3?url=${encodeURIComponent(cleanUrl)}`);
+                        const json2 = await res2.json();
+                        audioUrl = json2?.data?.download || json2?.result?.download || json2?.data?.url;
+                        if (json2?.data?.title) audioTitle = json2.data.title;
+                    }
+
+                    if (audioUrl) {
+                        await sock.sendMessage(from, { 
+                            audio: { url: audioUrl }, 
+                            mimetype: 'audio/mp4',
+                            ptt: false,
+                            caption: `🎵 *Berhasil!* Lagu *${audioTitle}* sukses diunduh.\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                        }, { quoted: msg });
+
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    } else {
+                        await sock.sendMessage(from, { text: '❌ Gagal mengkonversi lagu tersebut. Coba link video YouTube yang lain ya, bro!' }, { quoted: msg });
+                    }
+                } catch (err) {
+                    console.error('Error YouTube MP3 Direct:', err);
+                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala saat memproses audio YouTube. Coba beberapa saat lagi!' }, { quoted: msg });
+                }
                 return;
             }
 
