@@ -76,7 +76,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (LLAMA 3.3 70B + YOUTUBE MP3)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (LLAMA 3.3 70B + YOUTUBE Y2MATE INSTANT LINK)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -182,7 +182,7 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
 Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
-▫️ 🎵 *YouTube MP3* (Kirim link YouTube, otomatis jadi Audio/Lagu)
+▫️ 🎵 *YouTube MP3* (Kirim link YouTube, langsung dikasih link y2mate anti-gagal)
 ▫️ 🎵 *TikTok* (Video / Foto Carousel)
 ▫️ 📸 *Instagram* (Reels / Post / Foto)
 ▫️ 📘 *Facebook*
@@ -275,50 +275,21 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE MP3 (AUDIO) DENGAN MULTI-FALLBACK API
+            // H. DOWNLOADER YOUTUBE INSTAN LINK (Y2MATE REDIRECT)
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
-                await sock.sendMessage(from, { text: `⏳ *[YouTube MP3 Downloader]*\nSabar bree, sedang mengkonversi video YouTube jadi Audio (MP3)...`, mentions: [userJid] }, { quoted: msg });
+                // Buat link instan y2mate berdasarkan link YouTube yang dikirim
+                const y2mateLink = `https://y2mate.gs/search?q=${encodeURIComponent(cleanUrl)}`;
 
-                let audioUrl = null;
-                let audioTitle = 'YouTube Audio';
+                const replyY2 = `🎵 *[YOUTUBE MP3 DOWNLOADER]* 🎵\n\nMau download lagu dari link YouTube tersebut? Gampang bree, tinggal klik link y2mate di bawah ini buat convert dan download MP3-nya secara instan:\n\n🔗 ${y2mateLink}\n\n_— Diminta oleh @${userJid.split('@')[0]}_`;
 
-                try {
-                    // Coba API 1: Siputzx MP3
-                    try {
-                        const res1 = await fetch(`https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(cleanUrl)}`);
-                        const json1 = await res1.json();
-                        audioUrl = json1?.data?.dl || json1?.data?.download || json1?.dl || json1?.url;
-                        if (json1?.data?.title) audioTitle = json1.data.title;
-                    } catch (e) { /* Lanjut ke API berikutnya */ }
+                await sock.sendMessage(from, { 
+                    text: replyY2, 
+                    mentions: [userJid] 
+                }, { quoted: msg });
 
-                    // Coba API 2: Itzpire MP3
-                    if (!audioUrl) {
-                        try {
-                            const res2 = await fetch(`https://itzpire.com/download/ytmp3?url=${encodeURIComponent(cleanUrl)}`);
-                            const json2 = await res2.json();
-                            audioUrl = json2?.data?.download || json2?.result?.download || json2?.data?.url;
-                            if (json2?.data?.title) audioTitle = json2.data.title;
-                        } catch (e) { /* Lanjut ke API berikutnya */ }
-                    }
-
-                    if (audioUrl) {
-                        // Kirim sebagai format audio/dokumen musik WhatsApp
-                        await sock.sendMessage(from, { 
-                            audio: { url: audioUrl }, 
-                            mimetype: 'audio/mp4',
-                            ptt: false, // Diset false agar terkirim sebagai file musik/audio biasa yang bisa di-download
-                            caption: `🎵 *Berhasil mengunduh audio YouTube!*\n📌 Judul: *${audioTitle}*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
-                        }, { quoted: msg });
-
-                        await tambahXP(sock, from, userJid, 25, msg);
-                    } else {
-                        await sock.sendMessage(from, { text: '❌ Gagal mengkonversi audio YouTube tersebut. Coba link video yang lain ya!' }, { quoted: msg });
-                    }
-                } catch (err) {
-                    console.error('Error YouTube MP3 Downloader:', err);
-                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala saat memproses link YouTube MP3. Coba beberapa saat lagi!' }, { quoted: msg });
-                }
+                // Tetap beri bonus XP ke member yang kirim link
+                await tambahXP(sock, from, userJid, 25, msg);
                 return;
             }
 
