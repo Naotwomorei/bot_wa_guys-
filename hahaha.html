@@ -1,118 +1,464 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <title>Fade Dissolve Scroll</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+const pino = require('pino');
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
 
-    body {
-      font-family: Arial, sans-serif;
-      overflow: hidden; /* Menghilangkan scrollbar bawaan browser */
-      background-color: #0A1C15;
-      color: white;
+// =========================================================================
+// 📌 KONFIGURASI TARGET GRUP & DATABASE LEVELING
+// =========================================================================
+const TARGET_GROUP = '120363426460671438@g.us'; // ID Grup Khusus Kamu
+const DB_FILE = './database_leveling.json';
+
+// Baca atau Buat Database JSON Otomatis
+let userDB = {};
+if (fs.existsSync(DB_FILE)) {
+    userDB = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+} else {
+    fs.writeFileSync(DB_FILE, JSON.stringify({}, null, 2));
+}
+
+// Fungsi Simpan Data ke File JSON
+function saveDB() {
+    fs.writeFileSync(DB_FILE, JSON.stringify(userDB, null, 2));
+}
+
+// Memory / Objek Sementara untuk Menyimpan Waktu Chat Terakhir (Cooldown 3 Detik)
+const cooldownXP = {};
+
+// =========================================================================
+// 🎮 LOGIKA EFEK LEVELING & XP
+// =========================================================================
+async function tambahXP(sock, from, userJid, jumlahXP, quotedMsg) {
+    if (!userDB[userJid]) {
+        userDB[userJid] = { xp: 0, level: 1 };
     }
 
-    /* KONTEN UTAMA: Menumpuk semua tampilan di satu titik yang sama */
-    .container {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
+    userDB[userJid].xp += jumlahXP;
+    let xpDibutuhkan = userDB[userJid].level * 100;
+
+    // Cek Apakah Pengguna Level Up!
+    if (userDB[userJid].xp >= xpDibutuhkan) {
+        userDB[userJid].level += 1;
+        userDB[userJid].xp -= xpDibutuhkan;
+
+        const userTag = userJid.split('@')[0];
+        const pesanLevelUp = `🎉 *LEVEL UP!* 🎉\n\nSelamat @${userTag}! 🥳\nLevel kamu naik menjadi: *Level ${userDB[userJid].level}*\n\nTerus aktif di grup buat naikin level lagi! 🚀`;
+
+        await sock.sendMessage(from, {
+            text: pesanLevelUp,
+            mentions: [userJid]
+        }, { quoted: quotedMsg });
     }
 
-    /* SETIAP TAMPILAN (SECTION) */
-    section {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      
-      /* EFEK DISSOLVE UUTAMA: Pakai Opacity & Transition */
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 1s ease-in-out, visibility 1s ease-in-out;
-    }
+    saveDB();
+}
 
-    /* KELAS AKTIF: Tampilan yang sedang terlihat */
-    section.aktif {
-      opacity: 1;
-      visibility: visible;
-    }
-
-    /* WARNA MASING-MASING TAMPILAN */
-    .tampilan-1 { background-color: #142E23; } /* Hijau Tua */
-    .tampilan-2 { background-color: #0f172a; } /* Biru Gelap */
-    .tampilan-3 { background-color: #581c87; } /* Ungu Gelap */
-
-    h1 { font-size: 3rem; margin-bottom: 10px; }
-    p { font-size: 1.2rem; opacity: 0.8; }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <!-- TAMPILAN 1 (Diberi class 'aktif' agar muncul pertama kali) -->
-    <section class="tampilan-1 aktif">
-      <h1>Tampilan 1 🚀</h1>
-      <p>Scroll ke bawah/atas untuk efek dissolve</p>
-    </section>
-
-    <!-- TAMPILAN 2 -->
-    <section class="tampilan-2">
-      <h1>Tampilan 2 🎨</h1>
-      <p>Transisinya mulus memudar (fade in / fade out)</p>
-    </section>
-
-    <!-- TAMPILAN 3 -->
-    <section class="tampilan-3">
-      <h1>Tampilan 3 ✨</h1>
-      <p>Pas banget buat portofolio berkelas!</p>
-    </section>
-  </div>
-
-  <script>
-    const sections = document.querySelectorAll('section');
-    let indexAktif = 0;
-    let sedangTransisi = false; // Biar scroll gak ketumpuk pas animasi jalan
-
-    // Mendengarkan putaran mouse wheel
-    window.addEventListener('wheel', (e) => {
-      if (sedangTransisi) return; // Kalau animasi masih jalan, cuekin scroll berikutnya
-
-      if (e.deltaY > 0) {
-        // Scroll ke Bawah -> Pindah ke Tampilan Berikutnya
-        if (indexAktif < sections.length - 1) {
-          gantiTampilan(indexAktif + 1);
-        }
-      } else {
-        // Scroll ke Atas -> Pindah ke Tampilan Sebelumnya
-        if (indexAktif > 0) {
-          gantiTampilan(indexAktif - 1);
-        }
-      }
+async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
+    
+    const sock = makeWASocket({
+        auth: state,
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false
     });
 
-    function gantiTampilan(indexBaru) {
-      sedangTransisi = true;
+    sock.ev.on('creds.update', saveCreds);
 
-      // Hapus kelas 'aktif' dari tampilan lama (efek fade out)
-      sections[indexAktif].classList.remove('aktif');
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
+        
+        if (qr) {
+            const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
+            console.log('\n======================================================');
+            console.log('🔗 BUKA LINK INI DI BROWSER BUAT SCAN QR CODE:');
+            console.log(qrImageUrl);
+            console.log('======================================================\n');
+        }
 
-      // Tambahkan kelas 'aktif' ke tampilan baru (efek fade in)
-      indexAktif = indexBaru;
-      sections[indexAktif].classList.add('aktif');
+        if (connection === 'open') {
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (LLAMA 3.3 70B + YOUTUBE MP3 STABLE)!');
+        } else if (connection === 'close') {
+            const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
+            console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
+            
+            if (shouldReconnect) {
+                startBot();
+            } else {
+                console.log('⚠️ Sesi terhapus atau logout. Silakan hapus folder auth_info dan scan QR baru.');
+            }
+        }
+    });
 
-      // Beri jeda 1 detik sesuai durasi transisi CSS
-      setTimeout(() => {
-        sedangTransisi = false;
-      }, 1000);
-    }
-  </script>
+    // =========================================================================
+    // 1. FITUR WELCOME MESSAGE
+    // =========================================================================
+    sock.ev.on('group-participants.update', async (update) => {
+        const { id, participants, action } = update;
 
-</body>
-</html>
+        if (id === TARGET_GROUP && action === 'add') {
+            for (const participant of participants) {
+                const userJid = typeof participant === 'string' ? participant : (participant.id || participant.jid || '');
+                if (!userJid) continue;
+
+                const captionText = `@${userJid.split('@')[0]} ╭── [ 🌸 A.P.A INTRO 🌸 ] ──
+✦ 𝑷𝒆𝒓𝒌𝒆𝒏𝒂𝒍𝒂𝒏 𝑨𝒏𝒈𝒈𝒐𝒕𝒂 ✦
+╰━━━━━━━━━━━━━━━━━━━━━━╯
+
+୨୧ Nama : 
+୨୧ Gender : 
+୨୧ Kelas : 
+୨୧ Anime Favorit : 
+୨୧ Waifu / Husbu : 
+
+╭─────────── ✦ ───────────╮
+🎌 𝗦𝗮𝗹𝗮𝗺 𝗞𝗲𝗻𝗮𝗹! 🎌
+Semoga betah di keluarga anime ini ♡
+╰─────────── ✦ ───────────╯
+
+🌸 𝗬𝗼𝗿𝗼𝘀𝗵𝗶 𝗢𝗻𝗲𝗴𝗮𝗶𝘀𝗵𝗶𝗺𝗮𝘀𝘂! 🌸`;
+
+                const imagePath = path.join(__dirname, 'gambar.jpeg');
+
+                try {
+                    if (fs.existsSync(imagePath)) {
+                        await sock.sendMessage(id, {
+                            image: fs.readFileSync(imagePath),
+                            caption: captionText,
+                            mentions: [userJid]
+                        });
+                    } else {
+                        await sock.sendMessage(id, {
+                            text: captionText,
+                            mentions: [userJid]
+                        });
+                    }
+                } catch (err) {
+                    console.error('Gagal mengirim pesan welcome:', err);
+                }
+            }
+        }
+    });
+
+    // =========================================================================
+    // 2. FITUR UTAMA BOT (MESSAGES UPSERT)
+    // =========================================================================
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        try {
+            const msg = messages[0];
+            if (!msg.message || msg.key.fromMe) return;
+
+            const from = msg.key.remoteJid;
+            const userJid = msg.key.participant || msg.key.remoteJid;
+
+            // 🔒 FILTER UTAMA: Hanya proses jika berasal dari Grup Target!
+            if (from !== TARGET_GROUP) return;
+
+            // 🚫 FILTER 1: Jika pesan berupa Stiker, abaikan perhitungan XP
+            const isSticker = msg.message.stickerMessage;
+            if (isSticker) return;
+
+            const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+            const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
+
+            // =========================================================================
+            // F. COMMAND MENU / BANTUAN (!menu / .menu / !help)
+            // =========================================================================
+            if (
+                text.toLowerCase() === '!menu' || 
+                text.toLowerCase() === '.menu' || 
+                text.toLowerCase() === '!help' ||
+                text.toLowerCase() === '.help'
+            ) {
+                const menuText = `🤖 *DAFTAR FITUR BOT A.P.A* 🤖
+
+Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan di grup ini:
+
+✨ *GROQ AI (LLAMA 3.3 70B - CERDAS & KILAT)*
+▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab super pintar pake gaya tongkrongan anak kampus/sekolah!
+
+📊 *SISTEM LEVELING & XP*
+▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
+▫️ \`!top\` atau \`.leaderboard\` — Menampilkan 5 besar member dengan level tertinggi.
+
+📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
+Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
+▫️ 🎵 *YouTube MP3* (Kirim link YouTube, langsung dikirim file lagunya)
+▫️ 🎵 *TikTok* (Video / Foto Carousel)
+▫️ 📸 *Instagram* (Reels / Post / Foto)
+▫️ 📘 *Facebook*
+▫️ 📌 *Pinterest*
+
+Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
+
+                await sock.sendMessage(from, { 
+                    text: menuText, 
+                    mentions: [userJid] 
+                }, { quoted: msg });
+                
+                return;
+            }
+
+            // =========================================================================
+            // G. FITUR GROQ AI (MENGGUNAKAN LLAMA 3.3 70B)
+            // =========================================================================
+            const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
+            const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
+
+            if (isCommandMeta || isTaggedBot) {
+                let pertanyaan = text;
+                if (text.toLowerCase().startsWith('.meta')) {
+                    pertanyaan = text.slice(5).trim();
+                } else if (text.toLowerCase().startsWith('.ai')) {
+                    pertanyaan = text.slice(3).trim();
+                }
+
+                if (!pertanyaan) {
+                    await sock.sendMessage(from, { text: `Apasih @${userJid.split('@')[0]}? Dipanggil-panggil doang tapi gak nanya. Ketik \`.meta [pertanyaan kamu]\` napa, lu kira gua cenayang? 🗿` }, { quoted: msg });
+                    return;
+                }
+
+                await sock.sendMessage(from, { text: `⚡ AI Llama 3.3 lagi mikir cerdas buat @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendPresenceUpdate('composing', from);
+                
+                try {
+                    const apiKey = process.env.GROQ_API_KEY;
+                    if (!apiKey) {
+                        await sock.sendMessage(from, { text: '⚠️ Waduh, API Key Groq belum diset di server Railway nih, bro! Tambahin variabel GROQ_API_KEY ya.' }, { quoted: msg });
+                        return;
+                    }
+
+                    const systemPrompt = "Lu adalah asisten AI yang sangat cerdas, kritis, tapi tetap asik dan santai pakai bahasa gaul Gen Z (lu-gue) di grup WhatsApp anak sekolah dan mahasiswa.";
+
+                    const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+                        model: "llama-3.3-70b-versatile",
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: pertanyaan }
+                        ],
+                        temperature: 0.7
+                    }, {
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        }
+                    });
+
+                    let data = response.data;
+                    let jawabanAI = 
+                        data.choices?.[0]?.message?.content || 
+                        data.choices?.[0]?.text || 
+                        data.output || 
+                        data.message || 
+                        JSON.stringify(data);
+
+                    const balasanFinal = `🤖 *[GROQ AI - LLAMA 3.3]*\n\n${jawabanAI}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
+
+                    await sock.sendMessage(from, { 
+                        text: balasanFinal, 
+                        mentions: [userJid] 
+                    }, { quoted: msg });
+
+                } catch (err) {
+                    console.error('Gagal memanggil Groq API:', err);
+                    await sock.sendMessage(from, { text: `Waduh bro, error: ${err.message}` }, { quoted: msg });
+                }
+                return;
+            }
+
+            // =========================================================================
+            // H. DOWNLOADER YOUTUBE MP3 (MENGGUNAKAN AXIOS & MULTI-FALLBACK)
+            // =========================================================================
+            if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
+                await sock.sendMessage(from, { text: `⏳ *[YouTube MP3]*\nSabar bree, bot lagi convert video YouTube jadi file MP3...`, mentions: [userJid] }, { quoted: msg });
+
+                let audioUrl = null;
+                let audioTitle = 'YouTube Audio';
+
+                try {
+                    // Coba Endpoint 1
+                    try {
+                        const res1 = await axios.get(`https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(cleanUrl)}`, { timeout: 10000 });
+                        audioUrl = res1.data?.data?.dl || res1.data?.data?.download || res1.data?.dl || res1.data?.url;
+                        if (res1.data?.data?.title) audioTitle = res1.data.data.title;
+                    } catch (e) { /* Lanjut fallback */ }
+
+                    // Coba Endpoint 2 (Cadangan)
+                    if (!audioUrl) {
+                        try {
+                            const res2 = await axios.get(`https://itzpire.com/download/ytmp3?url=${encodeURIComponent(cleanUrl)}`, { timeout: 10000 });
+                            audioUrl = res2.data?.data?.download || res2.data?.result?.download || res2.data?.data?.url;
+                            if (res2.data?.data?.title) audioTitle = res2.data.data.title;
+                        } catch (e) { /* Lanjut fallback */ }
+                    }
+
+                    if (audioUrl) {
+                        await sock.sendMessage(from, { 
+                            audio: { url: audioUrl }, 
+                            mimetype: 'audio/mp4',
+                            ptt: false,
+                            caption: `🎵 *Berhasil!* Lagu *${audioTitle}* sukses diunduh.\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                        }, { quoted: msg });
+
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    } else {
+                        await sock.sendMessage(from, { text: '❌ Gagal mengkonversi lagu tersebut. Coba link video YouTube yang lain ya, bro!' }, { quoted: msg });
+                    }
+                } catch (err) {
+                    console.error('Error YouTube MP3:', err);
+                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala saat memproses audio YouTube. Coba beberapa saat lagi!' }, { quoted: msg });
+                }
+                return;
+            }
+
+            if (cleanUrl && cleanUrl.includes('tiktok.com')) {
+                await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]*\nSedang mengunduh media...' }, { quoted: msg });
+                try {
+                    const res = await axios.get(`https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`, { timeout: 10000 });
+                    const json = res.data;
+
+                    if (json.data) {
+                        if (json.data.play) {
+                            await sock.sendMessage(from, {
+                                video: { url: json.data.play },
+                                caption: `✅ *${json.data.title || 'TikTok Video'}*`
+                            }, { quoted: msg });
+                        } else if (json.data.images && json.data.images.length > 0) {
+                            for (const imgUrl of json.data.images) {
+                                await sock.sendMessage(from, { image: { url: imgUrl } }, { quoted: msg });
+                            }
+                        }
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    } else {
+                        await sock.sendMessage(from, { text: '❌ Gagal mengunduh media TikTok.' }, { quoted: msg });
+                    }
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '❌ Gagal terhubung ke server TikTok downloader.' }, { quoted: msg });
+                }
+                return;
+            }
+
+            else if (
+                cleanUrl && (
+                    cleanUrl.includes('instagram.com') || 
+                    cleanUrl.includes('facebook.com') || 
+                    cleanUrl.includes('pin.it') ||
+                    cleanUrl.includes('pinterest.com')
+                )
+            ) {
+                await sock.sendMessage(from, { text: `⏳ *[Media Downloader]*\nSedang memproses postingan/media...` }, { quoted: msg });
+
+                try {
+                    const response = await axios.post('https://api.cobalt.tools/api/json', { url: cleanUrl }, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 10000
+                    });
+
+                    const data = response.data;
+
+                    if (data) {
+                        if (data.url) {
+                            const isImage = data.url.includes('.jpg') || data.url.includes('.png') || data.url.includes('.webp');
+                            if (isImage) {
+                                await sock.sendMessage(from, { image: { url: data.url }, caption: '✅ Foto berhasil diunduh!' }, { quoted: msg });
+                            } else {
+                                await sock.sendMessage(from, { video: { url: data.url }, caption: '✅ Video berhasil diunduh!' }, { quoted: msg });
+                            }
+                        } else if (data.picker && data.picker.length > 0) {
+                            for (const item of data.picker) {
+                                if (item.type === 'photo') {
+                                    await sock.sendMessage(from, { image: { url: item.url } }, { quoted: msg });
+                                } else if (item.type === 'video') {
+                                    await sock.sendMessage(from, { video: { url: item.url } }, { quoted: msg });
+                                }
+                            }
+                        } else {
+                            await sock.sendMessage(from, { text: '❌ Gagal mengambil media dari link tersebut.' }, { quoted: msg });
+                            return;
+                        }
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    }
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '❌ Gagal terhubung ke server Cobalt downloader.' }, { quoted: msg });
+                }
+                return;
+            }
+
+            // A. COMMAND CEK LEVEL PRIBADI (!level / .level)
+            if (text.toLowerCase() === '!level' || text.toLowerCase() === '.level') {
+                const userData = userDB[userJid] || { xp: 0, level: 1 };
+                const targetXP = userData.level * 100;
+                const userTag = userJid.split('@')[0];
+
+                const statusLevel = `📊 *INFORMASI LEVEL PENGGUNA*\n\n👤 Pengguna: @${userTag}\n⭐ Level Saat Ini: *${userData.level}*\n⚡ Total XP: *${userData.xp} / ${targetXP} XP*`;
+
+                await sock.sendMessage(from, { text: statusLevel, mentions: [userJid] }, { quoted: msg });
+                return;
+            }
+
+            // B. COMMAND LEADERBOARD TOP LEVEL (!top / !leaderboard)
+            if (
+                text.toLowerCase() === '!top' || 
+                text.toLowerCase() === '.top' || 
+                text.toLowerCase() === '!leaderboard'
+            ) {
+                const sortedUsers = Object.keys(userDB).map(jid => {
+                    return { jid, ...userDB[jid] };
+                }).sort((a, b) => {
+                    if (b.level === a.level) {
+                        return b.xp - a.xp;
+                    }
+                    return b.level - a.level;
+                });
+
+                const top5 = sortedUsers.slice(0, 5);
+                
+                if (top5.length === 0) {
+                    await sock.sendMessage(from, { text: '❌ Belum ada data level di grup ini.' }, { quoted: msg });
+                    return;
+                }
+
+                let textLeaderboard = `🏆 *TOP 5 LEADERBOARD LEVEL GRUP* 🏆\n\n`;
+                const mentionsList = [];
+
+                top5.forEach((user, index) => {
+                    const rankEmoji = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][index];
+                    const tagNumber = user.jid.split('@')[0];
+                    textLeaderboard += `${rankEmoji} *@${tagNumber}*\n    └ 🏅 Level: *${user.level}* | ⚡ XP: *${user.xp}*\n\n`;
+                    mentionsList.push(user.jid);
+                });
+
+                await sock.sendMessage(from, { 
+                    text: textLeaderboard, 
+                    mentions: mentionsList 
+                }, { quoted: msg });
+                
+                return;
+            }
+
+            // =========================================================================
+            // ⏳ E. FILTER 2: COOLDOWN 3 DETIK UNTUK PENAMBAHAN XP CHAT BIASA (+10 XP)
+            // =========================================================================
+            const now = Date.now();
+            const cooldownTime = 3000; // 3 detik
+
+            if (cooldownXP[userJid]) {
+                const selisihWaktu = now - cooldownXP[userJid];
+                if (selisihWaktu < cooldownTime) {
+                    return; 
+                }
+            }
+
+            cooldownXP[userJid] = now;
+            await tambahXP(sock, from, userJid, 10, msg);
+
+        } catch (err) {
+            console.error('Error Bot Process:', err);
+        }
+    });
+}
+
+startBot();
