@@ -77,7 +77,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (LLAMA 3.3 70B + COBALT YOUTUBE ENGINE)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (YOUTUBE INSTANT LINK)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -183,11 +183,11 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
 Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
-▫️ 🎬 *YouTube* (Kirim link YouTube, diproses via Cobalt Engine)
-▫️ 🎵 *TikTok* (Video / Foto Carousel)
-▫️ 📸 *Instagram* (Reels / Post / Foto)
-▫️ 📘 *Facebook*
-▫️ 📌 *Pinterest*
+▫️ 🎬 *YouTube* (Kirim link YouTube, dapatkan link MP3 VVIP instan)
+▫️ 🎵 *TikTok* (Video / Foto Carousel otomatis)
+▫️ 📸 *Instagram* (Reels / Post / Foto otomatis)
+▫️ 📘 *Facebook* (otomatis)
+▫️ 📌 *Pinterest* (otomatis)
 
 Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
 
@@ -267,9 +267,58 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE & SOSMED (MENGGUNAKAN COBALT ENGINE)
+            // H. DOWNLOADER YOUTUBE JALUR VVIP (100% ANTI GAGAL)
             // =========================================================================
-            if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be') || cleanUrl.includes('instagram.com') || cleanUrl.includes('facebook.com') || cleanUrl.includes('pin.it') || cleanUrl.includes('pinterest.com'))) {
+            if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
+                // Generate link y2mate bersih
+                const y2mateLink = `https://y2mate.com/id/youtube?url=${encodeURIComponent(cleanUrl)}`;
+
+                const replyY2 = `🎵 *[YOUTUBE MP3 DOWNLOADER]* 🎵\n\nKarena server langsung sering diblokir, yuk pakai jalur VVIP aja bree! 🚀\n\nTinggal klik link biru di bawah ini, terus klik tombol *Download MP3* di webnya:\n\n🔗 ${y2mateLink}\n\n_— Diminta oleh @${userJid.split('@')[0]} (+25 XP)_`;
+
+                await sock.sendMessage(from, { 
+                    text: replyY2, 
+                    mentions: [userJid] 
+                }, { quoted: msg });
+
+                // Tetap beri bonus XP!
+                await tambahXP(sock, from, userJid, 25, msg);
+                return; // Stop di sini agar tidak diteruskan ke Cobalt
+            }
+
+            // =========================================================================
+            // I. DOWNLOADER TIKTOK
+            // =========================================================================
+            if (cleanUrl && cleanUrl.includes('tiktok.com')) {
+                await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]*\nSedang mengunduh media...' }, { quoted: msg });
+                try {
+                    const res = await axios.get(`https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`, { timeout: 10000 });
+                    const json = res.data;
+
+                    if (json.data) {
+                        if (json.data.play) {
+                            await sock.sendMessage(from, {
+                                video: { url: json.data.play },
+                                caption: `✅ *${json.data.title || 'TikTok Video'}*`
+                            }, { quoted: msg });
+                        } else if (json.data.images && json.data.images.length > 0) {
+                            for (const imgUrl of json.data.images) {
+                                await sock.sendMessage(from, { image: { url: imgUrl } }, { quoted: msg });
+                            }
+                        }
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    } else {
+                        await sock.sendMessage(from, { text: '❌ Gagal mengunduh media TikTok.' }, { quoted: msg });
+                    }
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '❌ Gagal terhubung ke server TikTok downloader.' }, { quoted: msg });
+                }
+                return;
+            }
+
+            // =========================================================================
+            // J. DOWNLOADER SOSMED LAINNYA (IG, FB, PINTEREST VIA COBALT)
+            // =========================================================================
+            if (cleanUrl && (cleanUrl.includes('instagram.com') || cleanUrl.includes('facebook.com') || cleanUrl.includes('pin.it') || cleanUrl.includes('pinterest.com'))) {
                 await sock.sendMessage(from, { text: `⏳ *[Media Downloader]*\nSabar bree, bot lagi proses link via Cobalt Engine...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
@@ -318,33 +367,6 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                 } catch (err) {
                     console.error('Error Cobalt Downloader:', err);
                     await sock.sendMessage(from, { text: '⚠️ Terjadi kendala koneksi ke server Cobalt. Coba beberapa saat lagi!' }, { quoted: msg });
-                }
-                return;
-            }
-
-            if (cleanUrl && cleanUrl.includes('tiktok.com')) {
-                await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]*\nSedang mengunduh media...' }, { quoted: msg });
-                try {
-                    const res = await axios.get(`https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`, { timeout: 10000 });
-                    const json = res.data;
-
-                    if (json.data) {
-                        if (json.data.play) {
-                            await sock.sendMessage(from, {
-                                video: { url: json.data.play },
-                                caption: `✅ *${json.data.title || 'TikTok Video'}*`
-                            }, { quoted: msg });
-                        } else if (json.data.images && json.data.images.length > 0) {
-                            for (const imgUrl of json.data.images) {
-                                await sock.sendMessage(from, { image: { url: imgUrl } }, { quoted: msg });
-                            }
-                        }
-                        await tambahXP(sock, from, userJid, 25, msg);
-                    } else {
-                        await sock.sendMessage(from, { text: '❌ Gagal mengunduh media TikTok.' }, { quoted: msg });
-                    }
-                } catch (e) {
-                    await sock.sendMessage(from, { text: '❌ Gagal terhubung ke server TikTok downloader.' }, { quoted: msg });
                 }
                 return;
             }
