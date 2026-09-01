@@ -176,7 +176,7 @@ Semoga betah di keluarga anime ini ♡
 
 Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan di grup ini:
 
-✨ *GROQ AI (LLAMA 3.3 70B - CERDAS & KILAT)*
+✨ *GROQ AI (LLAMA 3 - CERDAS & KILAT)*
 ▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab super pintar pake gaya tongkrongan anak kampus/sekolah!
 
 📊 *SISTEM LEVELING & XP*
@@ -190,7 +190,6 @@ Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonu
 ▫️ 📸 *Instagram* (Reels / Post / Foto)
 ▫️ 📘 *Facebook*
 ▫️ 📌 *Pinterest*
-▫️ 🎧 *Spotify*
 
 Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
 
@@ -203,7 +202,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // G. FITUR GROQ AI (MENGGUNAKAN LLAMA 3.3 70B)
+            // G. FITUR GROQ AI (MENGGUNAKAN LLAMA 3 70B)
             // =========================================================================
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
@@ -221,7 +220,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     return;
                 }
 
-                await sock.sendMessage(from, { text: `⚡ AI Llama 3.3 lagi mikir cerdas buat @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `⚡ AI Llama 3 lagi mikir cerdas buat @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
                 await sock.sendPresenceUpdate('composing', from);
                 
                 try {
@@ -240,7 +239,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                             'Authorization': `Bearer ${apiKey}`
                         },
                         body: JSON.stringify({
-                            model: "llama-3.3-70b-versatile",
+                            model: "llama3-70b-8192",
                             messages: [
                                 { role: "system", content: systemPrompt },
                                 { role: "user", content: pertanyaan }
@@ -264,7 +263,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                         data.message || 
                         JSON.stringify(data);
 
-                    const balasanFinal = `🤖 *[GROQ AI - LLAMA 3.3]*\n\n${jawabanAI}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
+                    const balasanFinal = `🤖 *[GROQ AI - LLAMA 3]*\n\n${jawabanAI}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
 
                     await sock.sendMessage(from, { 
                         text: balasanFinal, 
