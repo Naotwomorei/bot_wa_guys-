@@ -3,8 +3,8 @@ const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 
-// Panggil Scraper Lokal YTMP3 dari folder lib/youtube
-const { ytmp3 } = require('./lib/youtube');
+// Panggil Master Scraper dari file scraper.js
+const scraper = require('./scraper');
 
 // =========================================================================
 // 📌 KONFIGURASI TARGET GRUP & DATABASE LEVELING
@@ -79,7 +79,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (LOCAL YTMP3 SCRAPER ENGINE)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (MASTER SCRAPER ENGINE READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -185,11 +185,12 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
 Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
-▫️ 🎵 *YouTube MP3* (Kirim link YouTube, diproses via Local YTMP3 Scraper)
+▫️ 🎵 *YouTube MP3* (Diproses via Local Engine)
 ▫️ 🎵 *TikTok* (Video / Foto Carousel)
 ▫️ 📸 *Instagram* (Reels / Post / Foto)
 ▫️ 📘 *Facebook*
 ▫️ 📌 *Pinterest*
+▫️ 🎧 *Spotify*
 
 Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
 
@@ -278,13 +279,14 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE MP3 (LOCAL YTMP3 SCRAPER ENGINE)
+            // H. DOWNLOADER YOUTUBE MP3 (LOCAL SCRAPER ENGINE)
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
                 await sock.sendMessage(from, { text: `⏳ *[YouTube MP3]*\nSabar bree, bot lagi proses convert audio via Local Engine...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    const resData = await ytmp3(cleanUrl, "mp3");
+                    // Menggunakan master scraper youtube
+                    const resData = await scraper.youtube.ytmp3(cleanUrl, "mp3");
 
                     if (resData && resData.status && resData.result?.downloads?.[0]?.url) {
                         const audioUrl = resData.result.downloads[0].url;
