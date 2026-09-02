@@ -10,7 +10,7 @@ const scraper = require('./scraper');
 // 📌 KONFIGURASI MULTI-GRUP & DATABASE LEVELING
 // =========================================================================
 const GROUP_LIMITED = '120363426460671438@g.us'; // ID Grup Kamu Saat Ini
-const GROUP_ANOTHER = '120363430375282152@g.us'; // Nanti ganti kalau sudah dapat dari .listgrup
+const GROUP_ANOTHER = '120363430375282152@g.us'; // ID Grup Lainnya
 
 const DB_FILE = './database_leveling.json';
 
@@ -81,7 +81,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (MULTI-GROUP & LISTGROUP READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (MULTI-GROUP & SCRAPER READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -176,7 +176,6 @@ Semoga betah di keluarga anime ini ♡
                         responseText += `   🆔 ID: \`${group.id}\`\n\n`;
                     });
 
-                    responseText += `_Salin ID grup di atas untuk dimasukkan ke variabel GROUP_ANOTHER._`;
                     await sock.sendMessage(from, { text: responseText }, { quoted: msg });
                 } catch (err) {
                     console.error('Gagal mengambil daftar grup:', err);
@@ -345,35 +344,73 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
             }
 
             // =========================================================================
-            // J. DOWNLOADER SOSMED LAINNYA (IG, FB, PINTEREST VIA COBALT)
+            // J. DOWNLOADER INSTAGRAM (VIA SCRAPER LOKAL)
             // =========================================================================
-            if (cleanUrl && (cleanUrl.includes('instagram.com') || cleanUrl.includes('facebook.com') || cleanUrl.includes('pin.it') || cleanUrl.includes('pinterest.com'))) {
-                await sock.sendMessage(from, { text: `⏳ *[Media Downloader]* Memproses via Cobalt...` }, { quoted: msg });
+            if (cleanUrl && cleanUrl.includes('instagram.com')) {
+                await sock.sendMessage(from, { text: `⏳ *[Instagram Downloader]* Sedang memproses...`, mentions: [userJid] }, { quoted: msg });
                 try {
-                    const response = await fetch('https://api.cobalt.tools/api/json', {
-                        method: 'POST',
-                        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ url: cleanUrl })
-                    });
-                    const data = await response.json();
+                    const resData = await scraper.instagram(cleanUrl);
+                    const mediaUrl = resData?.result || resData?.url || resData?.[0];
 
-                    if (data?.url) {
-                        const isImage = data.url.includes('.jpg') || data.url.includes('.png');
-                        if (isImage) {
-                            await sock.sendMessage(from, { image: { url: data.url }, caption: '✅ Foto berhasil diunduh!' }, { quoted: msg });
+                    if (mediaUrl) {
+                        const isVideo = mediaUrl.includes('.mp4') || cleanUrl.includes('/reel/');
+                        if (isVideo) {
+                            await sock.sendMessage(from, { video: { url: mediaUrl }, caption: `✅ Instagram Video / Reel berhasil!` }, { quoted: msg });
                         } else {
-                            await sock.sendMessage(from, { video: { url: data.url }, caption: '✅ Video berhasil diunduh!' }, { quoted: msg });
+                            await sock.sendMessage(from, { image: { url: mediaUrl }, caption: `✅ Instagram Foto berhasil!` }, { quoted: msg });
                         }
                         await tambahXP(sock, from, userJid, 25, msg);
+                    } else {
+                        await sock.sendMessage(from, { text: `❌ Gagal mengambil media Instagram.` }, { quoted: msg });
                     }
                 } catch (err) {
-                    console.error('Error Cobalt:', err);
+                    console.error('Error Instagram Scraper:', err);
+                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada scraper Instagram.` }, { quoted: msg });
                 }
                 return;
             }
 
             // =========================================================================
-            // K. COMMAND LEVEL & LEADERBOARD
+            // K. DOWNLOADER FACEBOOK & PINTEREST (VIA SCRAPER LOKAL)
+            // =========================================================================
+            if (cleanUrl && (cleanUrl.includes('facebook.com') || cleanUrl.includes('fb.watch'))) {
+                await sock.sendMessage(from, { text: `⏳ *[Facebook Downloader]* Memproses...`, mentions: [userJid] }, { quoted: msg });
+                try {
+                    const resData = await scraper.facebook(cleanUrl);
+                    const mediaUrl = resData?.result || resData?.url;
+                    if (mediaUrl) {
+                        await sock.sendMessage(from, { video: { url: mediaUrl }, caption: `✅ Facebook Video berhasil!` }, { quoted: msg });
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    } else {
+                        await sock.sendMessage(from, { text: `❌ Gagal mengunduh video Facebook.` }, { quoted: msg });
+                    }
+                } catch (err) {
+                    console.error('Error FB Scraper:', err);
+                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada scraper Facebook.` }, { quoted: msg });
+                }
+                return;
+            }
+
+            if (cleanUrl && (cleanUrl.includes('pin.it') || cleanUrl.includes('pinterest.com'))) {
+                await sock.sendMessage(from, { text: `⏳ *[Pinterest Downloader]* Memproses...`, mentions: [userJid] }, { quoted: msg });
+                try {
+                    const resData = await scraper.pinterest(cleanUrl);
+                    const mediaUrl = resData?.result || resData?.url;
+                    if (mediaUrl) {
+                        await sock.sendMessage(from, { image: { url: mediaUrl }, caption: `✅ Pinterest Media berhasil!` }, { quoted: msg });
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    } else {
+                        await sock.sendMessage(from, { text: `❌ Gagal mengunduh dari Pinterest.` }, { quoted: msg });
+                    }
+                } catch (err) {
+                    console.error('Error Pinterest Scraper:', err);
+                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada scraper Pinterest.` }, { quoted: msg });
+                }
+                return;
+            }
+
+            // =========================================================================
+            // L. COMMAND LEVEL & LEADERBOARD
             // =========================================================================
             if (text.toLowerCase() === '!level' || text.toLowerCase() === '.level') {
                 const userData = userDB[userJid] || { xp: 0, level: 1 };
@@ -410,7 +447,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
             }
 
             // =========================================================================
-            // L. COOLDOWN XP CHAT BIASA (+10 XP)
+            // M. COOLDOWN XP CHAT BIASA (+10 XP)
             // =========================================================================
             const now = Date.now();
             const cooldownTime = 3000; 
