@@ -10,7 +10,7 @@ const scraper = require('./scraper');
 // 📌 KONFIGURASI MULTI-GRUP & DATABASE LEVELING
 // =========================================================================
 const GROUP_LIMITED = '120363426460671438@g.us'; // ID Grup Kamu Saat Ini
-const GROUP_ANOTHER = 'MASUKKAN_ID_GRUP_LAIN_DISINI@g.us'; // Nanti ganti kalau sudah dapat dari .listgrup
+const GROUP_ANOTHER = '120363430375282152@g.us'; // Nanti ganti kalau sudah dapat dari .listgrup
 
 const DB_FILE = './database_leveling.json';
 
