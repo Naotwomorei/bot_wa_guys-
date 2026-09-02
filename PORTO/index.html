@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeCraft - Professional Portfolio</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts & FontAwesome untuk Ikon -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- NAVBAR UTAMA -->
+    <header class="navbar">
+        <div class="logo">
+            <i class="fa-solid fa-code"></i> CodeCraft
+        </div>
+        <nav class="nav-links">
+            <a href="#" class="nav-item active" data-target="0">Beranda</a>
+            <a href="#" class="nav-item" data-target="1">Tentang Saya</a>
+            <a href="#" class="nav-item" data-target="2">Skill</a>
+            <a href="#" class="nav-item" data-target="3">Proyek</a>
+            <a href="#" class="nav-item" data-target="4">Kontak</a>
+        </nav>
+        <a href="#contact" class="btn-hire" onclick="goToSlide(4)">Dukung Saya <i class="fa-solid fa-arrow-right"></i></a>
+    </header>
+
+    <!-- CONTAINER UTAMA SLIDER -->
+    <main class="slider-container">
+
+        <!-- SLIDE 1: HERO SECTION -->
+        <section class="slide active" id="slide-0">
+            <div class="hero-content">
+                <span class="badge">I'M A WEB DEVELOPER</span>
+                <h1>Halo, Saya <span class="highlight">Ikram</span><br>Saya Seorang Web Developer</h1>
+                <p>Saya seorang web developer yang berfokus pada pembuatan proyek digital yang luar biasa dengan teknologi modern.</p>
+                <div class="hero-btns">
+                    <a href="#" class="btn-primary" onclick="goToSlide(3)">View My Work <i class="fa-solid fa-arrow-right"></i></a>
+                    <a href="#" class="btn-secondary"><i class="fa-solid fa-download"></i> Download CV</a>
+                </div>
+            </div>
+            <div class="hero-image-box">
+                <div class="purple-glow"></div>
+                <!-- CARA MELETAKKAN GAMBAR UTAMA: -->
+                <img src="images/hero-profile.jpg" alt="Profile" class="profile-img" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80'">
+            </div>
+        </section>
+
+        <!-- SLIDE 2: ABOUT ME & STATS -->
+        <section class="slide" id="slide-1">
+            <div class="about-container">
+                <div class="about-text">
+                    <span class="badge">Tentang Saya</span>
+                    <h2>Belajar Menemukan Hal yang Baru Dalam Pengembangan Web</h2>
+                    <p>With years of experience in web development, I help businesses and individuals bring their ideas to life through clean, efficient, and user-friendly code.</p>
+                    <button class="btn-primary" onclick="goToSlide(2)">Learn More About Me <i class="fa-solid fa-user"></i></button>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <h3>4+</h3>
+                        <p>Years Experience</p>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fa-solid fa-code"></i>
+                        <h3>50+</h3>
+                        <p>Projects Completed</p>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fa-solid fa-face-smile"></i>
+                        <h3>30+</h3>
+                        <p>Happy Clients</p>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fa-solid fa-trophy"></i>
+                        <h3>100%</h3>
+                        <p>Client Satisfaction</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 3: SKILLS -->
+        <section class="slide" id="slide-2">
+            <div class="skills-container">
+                <span class="badge">MY SKILLS</span>
+                <h2>Technologies I Master</h2>
+                <div class="skills-grid">
+                    <div class="skill-item">
+                        <span>HTML <span>95%</span></span>
+                        <div class="progress-bar"><div class="progress" style="width: 95%;"></div></div>
+                    </div>
+                    <div class="skill-item">
+                        <span>CSS <span>90%</span></span>
+                        <div class="progress-bar"><div class="progress" style="width: 90%;"></div></div>
+                    </div>
+                    <div class="skill-item">
+                        <span>JavaScript <span>90%</span></span>
+                        <div class="progress-bar"><div class="progress" style="width: 90%;"></div></div>
+                    </div>
+                    <div class="skill-item">
+                        <span>React.js <span>85%</span></span>
+                        <div class="progress-bar"><div class="progress" style="width: 85%;"></div></div>
+                    </div>
+                    <div class="skill-item">
+                        <span>Next.js <span>80%</span></span>
+                        <div class="progress-bar"><div class="progress" style="width: 80%;"></div></div>
+                    </div>
+                    <div class="skill-item">
+                        <span>TypeScript <span>85%</span></span>
+                        <div class="progress-bar"><div class="progress" style="width: 85%;"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: FEATURED PROJECTS -->
+        <section class="slide" id="slide-3">
+            <div class="projects-container">
+                <span class="badge">FEATURED PROJECTS</span>
+                <h2>Some of My Recent Work</h2>
+                <div class="project-cards">
+                    <div class="p-card">
+                        <span class="p-num">01</span>
+                        <!-- CARA MELETAKKAN GAMBAR PROJECT 1 -->
+                        <img src="images/project-1.png" alt="Project 1" onerror="this.src='https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=500&q=80'">
+                        <h3>E-Commerce Platform</h3>
+                        <p>Full-stack e-commerce solution with modern UI/UX.</p>
+                        <a href="#">View Project <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                    <div class="p-card">
+                        <span class="p-num">02</span>
+                        <!-- CARA MELETAKKAN GAMBAR PROJECT 2 -->
+                        <img src="images/project-2.png" alt="Project 2" onerror="this.src='https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=500&q=80'">
+                        <h3>Task Management App</h3>
+                        <p>Collaborative task management application.</p>
+                        <a href="#">View Project <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                    <div class="p-card">
+                        <span class="p-num">03</span>
+                        <!-- CARA MELETAKKAN GAMBAR PROJECT 3 -->
+                        <img src="images/project-3.png" alt="Project 3" onerror="this.src='https://images.unsplash.com/photo-1642543492481-44e81e3914a7?auto=format&fit=crop&w=500&q=80'">
+                        <h3>Crypto Dashboard</h3>
+                        <p>Real-time cryptocurrency tracking dashboard.</p>
+                        <a href="#">View Project <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 5: CONTACT & FOOTER -->
+        <section class="slide" id="slide-4">
+            <div class="contact-container">
+                <div class="contact-box">
+                    <span class="badge">LET'S WORK TOGETHER</span>
+                    <h2>Have a project in mind?</h2>
+                    <p>I'm always open to discuss new projects and opportunities.</p>
+                    <a href="mailto:hello@ikramdev.com" class="btn-primary">Get In Touch <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="footer-info">
+                    <div class="socials">
+                        <a href="#"><i class="fa-brands fa-github"></i></a>
+                        <a href="#"><i class="fa-brands fa-linkedin"></i></a>
+                        <a href="#"><i class="fa-brands fa-twitter"></i></a>
+                        <a href="#"><i class="fa-brands fa-instagram"></i></a>
+                    </div>
+                    <p>hello@ikramdev.com | +1 (555) 123-4567</p>
+                    <p class="copy">© 2026 Ikram Fahmi. All rights reserved.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- NAVIGASI DOTS (INDIKATOR SLIDE) -->
+    <div class="slide-dots">
+        <span class="dot active" onclick="goToSlide(0)"></span>
+        <span class="dot" onclick="goToSlide(1)"></span>
+        <span class="dot" onclick="goToSlide(2)"></span>
+        <span class="dot" onclick="goToSlide(3)"></span>
+        <span class="dot" onclick="goToSlide(4)"></span>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -7,9 +7,12 @@ const path = require('path');
 const scraper = require('./scraper');
 
 // =========================================================================
-// 📌 KONFIGURASI TARGET GRUP & DATABASE LEVELING
+// 📌 KONFIGURASI MULTI-GRUP & DATABASE LEVELING
 // =========================================================================
-const TARGET_GROUP = '120363426460671438@g.us'; // ID Grup Khusus Kamu
+// Semua grup di bawah ini bebas menggunakan SEMUA FITUR termasuk AI
+const GROUP_LIMITED = '120363426460671438@g.us'; // ID Grup Utama Kamu
+const GROUP_ANOTHER = 'MASUKKAN_ID_GRUP_LAIN_DISINI@g.us'; // Tambahkan grup lain di sini kalau ada
+
 const DB_FILE = './database_leveling.json';
 
 // Baca atau Buat Database JSON Otomatis
@@ -25,7 +28,7 @@ function saveDB() {
     fs.writeFileSync(DB_FILE, JSON.stringify(userDB, null, 2));
 }
 
-// Memory / Objek Sementara untuk Menyimpan Waktu Chat Terakhir (Cooldown 3 Detik)
+// Memory / Objek Sementara untuk Cooldown Chat (3 Detik)
 const cooldownXP = {};
 
 // =========================================================================
@@ -79,7 +82,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (MASTER SCRAPER ENGINE READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (ALL GROUPS AI MODE READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -93,12 +96,12 @@ async function startBot() {
     });
 
     // =========================================================================
-    // 1. FITUR WELCOME MESSAGE
+    // 1. FITUR WELCOME MESSAGE (Berlaku di Semua Grup Terdaftar)
     // =========================================================================
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
 
-        if (id === TARGET_GROUP && action === 'add') {
+        if ((id === GROUP_LIMITED || id === GROUP_ANOTHER) && action === 'add') {
             for (const participant of participants) {
                 const userJid = typeof participant === 'string' ? participant : (participant.id || participant.jid || '');
                 if (!userJid) continue;
@@ -153,8 +156,8 @@ Semoga betah di keluarga anime ini ♡
             const from = msg.key.remoteJid;
             const userJid = msg.key.participant || msg.key.remoteJid;
 
-            // 🔒 FILTER UTAMA: Hanya proses jika berasal dari Grup Target!
-            if (from !== TARGET_GROUP) return;
+            // 🔒 FILTER UTAMA: Hanya proses jika pesan berasal dari grup terdaftar
+            if (from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
 
             // 🚫 FILTER 1: Jika pesan berupa Stiker, abaikan perhitungan XP
             const isSticker = msg.message.stickerMessage;
@@ -164,7 +167,7 @@ Semoga betah di keluarga anime ini ♡
             const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
 
             // =========================================================================
-            // F. COMMAND MENU / BANTUAN (!menu / .menu / !help)
+            // F. COMMAND MENU / BANTUAN
             // =========================================================================
             if (
                 text.toLowerCase() === '!menu' || 
@@ -174,24 +177,17 @@ Semoga betah di keluarga anime ini ♡
             ) {
                 const menuText = `🤖 *DAFTAR FITUR BOT A.P.A* 🤖
 
-Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan di grup ini:
+Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan:
 
-✨ *GROQ AI (LLAMA 3 - CERDAS & KILAT)*
-▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya apa aja, dijawab super pintar pake gaya tongkrongan anak kampus/sekolah!
+✨ *GROQ AI (AKTIF)*
+▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya jawab AI cerdas.
 
 📊 *SISTEM LEVELING & XP*
-▫️ \`!level\` atau \`.level\` — Cek level, XP, dan progress kamu saat ini.
-▫️ \`!top\` atau \`.leaderboard\` — Menampilkan 5 besar member dengan level tertinggi.
+▫️ \`!level\` atau \`.level\` — Cek level & XP kamu.
+▫️ \`!top\` atau \`.leaderboard\` — Cek 5 besar member.
 
-📥 *MULTI-PLATFORM DOWNLOADER (Kirim Link)*
-Kirim link dari platform berikut di grup untuk otomatis mengunduh medianya (Bonus +25 XP):
-▫️ 🎵 *YouTube MP3* (Diproses via Local Engine)
-▫️ 🎵 *TikTok* (Video / Foto Carousel)
-▫️ 📸 *Instagram* (Reels / Post / Foto)
-▫️ 📘 *Facebook*
-▫️ 📌 *Pinterest*
-
-Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
+📥 *MULTI-PLATFORM DOWNLOADER*
+Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomatis (+25 XP)!`;
 
                 await sock.sendMessage(from, { 
                     text: menuText, 
@@ -202,7 +198,7 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             }
 
             // =========================================================================
-            // G. FITUR GROQ AI (MENGGUNAKAN LLAMA 3 70B)
+            // G. FITUR GROQ AI (AKTIF DI SEMUA GRUP)
             // =========================================================================
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
@@ -216,21 +212,21 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                 }
 
                 if (!pertanyaan) {
-                    await sock.sendMessage(from, { text: `Apasih @${userJid.split('@')[0]}? Dipanggil-panggil doang tapi gak nanya. Ketik \`.meta [pertanyaan kamu]\` napa, lu kira gua cenayang? 🗿` }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `Apasih @${userJid.split('@')[0]}? Ketik \`.meta [pertanyaan kamu]\` napa! 🗿` }, { quoted: msg });
                     return;
                 }
 
-                await sock.sendMessage(from, { text: `⚡ AI Llama 3 lagi mikir cerdas buat @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `⚡ AI lagi mikir buat @${userJid.split('@')[0]}...`, mentions: [userJid] }, { quoted: msg });
                 await sock.sendPresenceUpdate('composing', from);
                 
                 try {
                     const apiKey = process.env.GROQ_API_KEY;
                     if (!apiKey) {
-                        await sock.sendMessage(from, { text: '⚠️ Waduh, API Key Groq belum diset di server Railway nih, bro! Tambahin variabel GROQ_API_KEY ya.' }, { quoted: msg });
+                        await sock.sendMessage(from, { text: '⚠️ API Key Groq belum diset di Railway!' }, { quoted: msg });
                         return;
                     }
 
-                    const systemPrompt = "Lu adalah asisten AI yang sangat cerdas, kritis, tapi tetap asik dan santai pakai bahasa gaul Gen Z (lu-gue) di grup WhatsApp anak sekolah dan mahasiswa.";
+                    const systemPrompt = "Lu adalah asisten AI yang sangat cerdas, kritis, tapi tetap asik dan santai pakai bahasa gaul Gen Z (lu-gue).";
 
                     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                         method: 'POST',
@@ -251,40 +247,27 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     const data = await response.json();
                     
                     if (data.error) {
-                        console.error('Error dari Groq API:', data.error);
                         await sock.sendMessage(from, { text: `⚠️ AI Error: ${data.error.message}` }, { quoted: msg });
                         return;
                     }
 
-                    let jawabanAI = 
-                        data.choices?.[0]?.message?.content || 
-                        data.choices?.[0]?.text || 
-                        data.output || 
-                        data.message || 
-                        JSON.stringify(data);
+                    let jawabanAI = data.choices?.[0]?.message?.content || "Gagal merespons.";
+                    const balasanFinal = `🤖 *[GROQ AI]*\n\n${jawabanAI}\n\n_— @${userJid.split('@')[0]}_`;
 
-                    const balasanFinal = `🤖 *[GROQ AI - LLAMA 3]*\n\n${jawabanAI}\n\n_— Ditanyakan oleh @${userJid.split('@')[0]}_`;
-
-                    await sock.sendMessage(from, { 
-                        text: balasanFinal, 
-                        mentions: [userJid] 
-                    }, { quoted: msg });
-
+                    await sock.sendMessage(from, { text: balasanFinal, mentions: [userJid] }, { quoted: msg });
                 } catch (err) {
                     console.error('Gagal memanggil Groq API:', err);
-                    await sock.sendMessage(from, { text: `Waduh bro, error: ${err.message}` }, { quoted: msg });
                 }
                 return;
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE MP3 (LOCAL SCRAPER ENGINE)
+            // H. DOWNLOADER YOUTUBE MP3
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
-                await sock.sendMessage(from, { text: `⏳ *[YouTube MP3]*\nSabar bree, bot lagi proses convert audio via Local Engine...`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `⏳ *[YouTube MP3]*\nSabar bree, bot lagi proses convert audio...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    // Menggunakan master scraper youtube
                     const resData = await scraper.youtube.ytmp3(cleanUrl, "mp3");
 
                     if (resData && resData.status && resData.result?.downloads?.[0]?.url) {
@@ -295,16 +278,15 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                             audio: { url: audioUrl }, 
                             mimetype: 'audio/mp4',
                             ptt: false,
-                            caption: `🎵 *Berhasil!* Lagu *${audioTitle}* sukses diunduh.\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                            caption: `🎵 *Berhasil!* Lagu *${audioTitle}* diunduh.\n👤 @${userJid.split('@')[0]}`
                         }, { quoted: msg });
 
                         await tambahXP(sock, from, userJid, 25, msg);
                     } else {
-                        await sock.sendMessage(from, { text: `❌ Gagal mengkonversi: ${resData.message || 'Unknown error'}` }, { quoted: msg });
+                        await sock.sendMessage(from, { text: `❌ Gagal mengkonversi audio.` }, { quoted: msg });
                     }
                 } catch (err) {
                     console.error('Error Local YTMP3:', err);
-                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala saat memproses konversi YouTube lokal.' }, { quoted: msg });
                 }
                 return;
             }
@@ -313,28 +295,23 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             // I. DOWNLOADER TIKTOK
             // =========================================================================
             if (cleanUrl && cleanUrl.includes('tiktok.com')) {
-                await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]*\nSedang mengunduh media...' }, { quoted: msg });
+                await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]* Sedang mengunduh...' }, { quoted: msg });
                 try {
                     const res = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`);
                     const json = await res.json();
 
                     if (json.data) {
                         if (json.data.play) {
-                            await sock.sendMessage(from, {
-                                video: { url: json.data.play },
-                                caption: `✅ *${json.data.title || 'TikTok Video'}*`
-                            }, { quoted: msg });
-                        } else if (json.data.images && json.data.images.length > 0) {
+                            await sock.sendMessage(from, { video: { url: json.data.play }, caption: `✅ TikTok Video` }, { quoted: msg });
+                        } else if (json.data.images?.length > 0) {
                             for (const imgUrl of json.data.images) {
                                 await sock.sendMessage(from, { image: { url: imgUrl } }, { quoted: msg });
                             }
                         }
                         await tambahXP(sock, from, userJid, 25, msg);
-                    } else {
-                        await sock.sendMessage(from, { text: '❌ Gagal mengunduh media TikTok.' }, { quoted: msg });
                     }
                 } catch (e) {
-                    await sock.sendMessage(from, { text: '❌ Gagal terhubung ke server TikTok downloader.' }, { quoted: msg });
+                    console.error('Error TikTok:', e);
                 }
                 return;
             }
@@ -342,92 +319,55 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
             // =========================================================================
             // J. DOWNLOADER SOSMED LAINNYA (IG, FB, PINTEREST VIA COBALT)
             // =========================================================================
-            if (
-                cleanUrl && (
-                    cleanUrl.includes('instagram.com') || 
-                    cleanUrl.includes('facebook.com') || 
-                    cleanUrl.includes('pin.it') ||
-                    cleanUrl.includes('pinterest.com')
-                )
-            ) {
-                await sock.sendMessage(from, { text: `⏳ *[Media Downloader]*\nSedang memproses postingan/media via Cobalt...` }, { quoted: msg });
-
+            if (cleanUrl && (cleanUrl.includes('instagram.com') || cleanUrl.includes('facebook.com') || cleanUrl.includes('pin.it') || cleanUrl.includes('pinterest.com'))) {
+                await sock.sendMessage(from, { text: `⏳ *[Media Downloader]* Memproses via Cobalt...` }, { quoted: msg });
                 try {
                     const response = await fetch('https://api.cobalt.tools/api/json', {
                         method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
                         body: JSON.stringify({ url: cleanUrl })
                     });
-
                     const data = await response.json();
 
-                    if (data) {
-                        if (data.url) {
-                            const isImage = data.url.includes('.jpg') || data.url.includes('.png') || data.url.includes('.webp');
-                            if (isImage) {
-                                await sock.sendMessage(from, { image: { url: data.url }, caption: '✅ Foto berhasil diunduh!' }, { quoted: msg });
-                            } else {
-                                await sock.sendMessage(from, { video: { url: data.url }, caption: '✅ Video berhasil diunduh!' }, { quoted: msg });
-                            }
-                        } else if (data.picker && data.picker.length > 0) {
-                            for (const item of data.picker) {
-                                if (item.type === 'photo') {
-                                    await sock.sendMessage(from, { image: { url: item.url } }, { quoted: msg });
-                                } else if (item.type === 'video') {
-                                    await sock.sendMessage(from, { video: { url: item.url } }, { quoted: msg });
-                                }
-                            }
+                    if (data?.url) {
+                        const isImage = data.url.includes('.jpg') || data.url.includes('.png');
+                        if (isImage) {
+                            await sock.sendMessage(from, { image: { url: data.url }, caption: '✅ Foto berhasil diunduh!' }, { quoted: msg });
                         } else {
-                            await sock.sendMessage(from, { text: '❌ Gagal mengambil media dari link tersebut.' }, { quoted: msg });
-                            return;
+                            await sock.sendMessage(from, { video: { url: data.url }, caption: '✅ Video berhasil diunduh!' }, { quoted: msg });
                         }
                         await tambahXP(sock, from, userJid, 25, msg);
                     }
                 } catch (err) {
-                    console.error('Error Cobalt Downloader:', err);
-                    await sock.sendMessage(from, { text: '⚠️ Terjadi kendala koneksi ke server Cobalt.' }, { quoted: msg });
+                    console.error('Error Cobalt:', err);
                 }
                 return;
             }
 
-            // A. COMMAND CEK LEVEL PRIBADI (!level / .level)
+            // =========================================================================
+            // K. COMMAND LEVEL & LEADERBOARD
+            // =========================================================================
             if (text.toLowerCase() === '!level' || text.toLowerCase() === '.level') {
                 const userData = userDB[userJid] || { xp: 0, level: 1 };
                 const targetXP = userData.level * 100;
                 const userTag = userJid.split('@')[0];
 
-                const statusLevel = `📊 *INFORMASI LEVEL PENGGUNA*\n\n👤 Pengguna: @${userTag}\n⭐ Level Saat Ini: *${userData.level}*\n⚡ Total XP: *${userData.xp} / ${targetXP} XP*`;
-
+                const statusLevel = `📊 *INFORMASI LEVEL*\n\n👤 @${userTag}\n⭐ Level: *${userData.level}*\n⚡ XP: *${userData.xp} / ${targetXP} XP*`;
                 await sock.sendMessage(from, { text: statusLevel, mentions: [userJid] }, { quoted: msg });
                 return;
             }
 
-            // B. COMMAND LEADERBOARD TOP LEVEL (!top / !leaderboard)
-            if (
-                text.toLowerCase() === '!top' || 
-                text.toLowerCase() === '.top' || 
-                text.toLowerCase() === '!leaderboard'
-            ) {
-                const sortedUsers = Object.keys(userDB).map(jid => {
-                    return { jid, ...userDB[jid] };
-                }).sort((a, b) => {
-                    if (b.level === a.level) {
-                        return b.xp - a.xp;
-                    }
-                    return b.level - a.level;
-                });
+            if (text.toLowerCase() === '!top' || text.toLowerCase() === '.top' || text.toLowerCase() === '!leaderboard') {
+                const sortedUsers = Object.keys(userDB).map(jid => ({ jid, ...userDB[jid] }))
+                    .sort((a, b) => b.level === a.level ? b.xp - a.xp : b.level - a.level);
 
                 const top5 = sortedUsers.slice(0, 5);
-                
                 if (top5.length === 0) {
-                    await sock.sendMessage(from, { text: '❌ Belum ada data level di grup ini.' }, { quoted: msg });
+                    await sock.sendMessage(from, { text: '❌ Belum ada data level.' }, { quoted: msg });
                     return;
                 }
 
-                let textLeaderboard = `🏆 *TOP 5 LEADERBOARD LEVEL GRUP* 🏆\n\n`;
+                let textLeaderboard = `🏆 *TOP 5 LEADERBOARD* 🏆\n\n`;
                 const mentionsList = [];
 
                 top5.forEach((user, index) => {
@@ -437,25 +377,18 @@ Ketik perintah dengan benar dan selamat menikmati fitur bot! 🚀`;
                     mentionsList.push(user.jid);
                 });
 
-                await sock.sendMessage(from, { 
-                    text: textLeaderboard, 
-                    mentions: mentionsList 
-                }, { quoted: msg });
-                
+                await sock.sendMessage(from, { text: textLeaderboard, mentions: mentionsList }, { quoted: msg });
                 return;
             }
 
             // =========================================================================
-            // ⏳ E. FILTER 2: COOLDOWN 3 DETIK UNTUK PENAMBAHAN XP CHAT BIASA (+10 XP)
+            // L. COOLDOWN XP CHAT BIASA (+10 XP)
             // =========================================================================
             const now = Date.now();
-            const cooldownTime = 3000; // 3 detik
+            const cooldownTime = 3000; 
 
-            if (cooldownXP[userJid]) {
-                const selisihWaktu = now - cooldownXP[userJid];
-                if (selisihWaktu < cooldownTime) {
-                    return; 
-                }
+            if (cooldownXP[userJid] && (now - cooldownXP[userJid]) < cooldownTime) {
+                return; 
             }
 
             cooldownXP[userJid] = now;
