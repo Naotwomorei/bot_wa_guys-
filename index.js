@@ -9,9 +9,8 @@ const scraper = require('./scraper');
 // =========================================================================
 // 📌 KONFIGURASI MULTI-GRUP & DATABASE LEVELING
 // =========================================================================
-// Semua grup di bawah ini bebas menggunakan SEMUA FITUR termasuk AI
-const GROUP_LIMITED = '120363426460671438@g.us'; // ID Grup Utama Kamu
-const GROUP_ANOTHER = 'MASUKKAN_ID_GRUP_LAIN_DISINI@g.us'; // Tambahkan grup lain di sini kalau ada
+const GROUP_LIMITED = '120363426460671438@g.us'; // ID Grup Kamu Saat Ini
+const GROUP_ANOTHER = 'MASUKKAN_ID_GRUP_LAIN_DISINI@g.us'; // Nanti ganti kalau sudah dapat dari .listgrup
 
 const DB_FILE = './database_leveling.json';
 
@@ -82,7 +81,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (ALL GROUPS AI MODE READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (MULTI-GROUP & LISTGROUP READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -155,15 +154,44 @@ Semoga betah di keluarga anime ini ♡
 
             const from = msg.key.remoteJid;
             const userJid = msg.key.participant || msg.key.remoteJid;
+            const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
 
-            // 🔒 FILTER UTAMA: Hanya proses jika pesan berasal dari grup terdaftar
+            // =========================================================================
+            // A. FITUR CEK LIST GRUP (Bisa diketik di CHAT PRIBADI bot)
+            // =========================================================================
+            if (!from.endsWith('@g.us') && (text.toLowerCase() === '.listgrup' || text.toLowerCase() === '.mygroups')) {
+                try {
+                    const fetchedGroups = await sock.groupFetchAllParticipating();
+                    const groupsArray = Object.values(fetchedGroups);
+
+                    if (groupsArray.length === 0) {
+                        await sock.sendMessage(from, { text: '❌ Bot belum bergabung di grup manapun.' }, { quoted: msg });
+                        return;
+                    }
+
+                    let responseText = `📋 *DAFTAR GRUP WHATSAPP BOT* (${groupsArray.length} Grup):\n\n`;
+
+                    groupsArray.forEach((group, index) => {
+                        responseText += `${index + 1}. *${group.subject}*\n`;
+                        responseText += `   🆔 ID: \`${group.id}\`\n\n`;
+                    });
+
+                    responseText += `_Salin ID grup di atas untuk dimasukkan ke variabel GROUP_ANOTHER._`;
+                    await sock.sendMessage(from, { text: responseText }, { quoted: msg });
+                } catch (err) {
+                    console.error('Gagal mengambil daftar grup:', err);
+                    await sock.sendMessage(from, { text: '⚠️ Terjadi kesalahan saat mengambil daftar grup.' }, { quoted: msg });
+                }
+                return;
+            }
+
+            // 🔒 FILTER UTAMA: Hanya proses pesan grup jika berasal dari grup terdaftar!
             if (from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
 
             // 🚫 FILTER 1: Jika pesan berupa Stiker, abaikan perhitungan XP
             const isSticker = msg.message.stickerMessage;
             if (isSticker) return;
 
-            const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
             const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
 
             // =========================================================================
