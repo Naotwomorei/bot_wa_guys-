@@ -82,7 +82,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (STABLE MODE READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (CAPTION-BASED MEDIA READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -155,7 +155,11 @@ Semoga betah di keluarga anime ini ♡
 
             const from = msg.key.remoteJid;
             const userJid = msg.key.participant || msg.key.remoteJid;
-            const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+            
+            // Ambil teks baik dari chat biasa maupun dari caption gambar
+            const text = msg.message.conversation || 
+                         msg.message.extendedTextMessage?.text || 
+                         msg.message.imageMessage?.caption || '';
 
             // =========================================================================
             // A. FITUR CEK LIST GRUP (Bisa diketik di CHAT PRIBADI bot)
@@ -193,21 +197,20 @@ Semoga betah di keluarga anime ini ♡
             if (isSticker) return;
 
             // =========================================================================
-            // B1. FITUR BACKGROUND REMOVER (.bg) - ANTI-HANG & LANGSUNG EKSEKUSI
+            // B1. FITUR BACKGROUND REMOVER (.bg) - SUPORT CAPTION & REPLY
             // =========================================================================
             const cmd = text.toLowerCase().trim();
-            if (from === GROUP_ANOTHER && (cmd === '.bg' || cmd === '!bg')) {
+            if (from === GROUP_ANOTHER && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
-                    await sock.sendMessage(from, { text: `⚠️ Kirim atau balas foto sambil mengetik *.bg* untuk menghapus background!` }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `⚠️ Kirim foto dengan caption *.bg* atau balas foto sambil mengetik *.bg* ya, *lek*!` }, { quoted: msg });
                     return;
                 }
 
                 await sock.sendMessage(from, { text: `⏳ *[AI BG Remover]* Sedang memproses gambar di server...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    // Unduh stream media langsung tanpa fungsi downloadMediaMessage Baileys yang sering nyangkut
                     const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(imageMessage, 'image');
                     let buffer = Buffer.from([]);
                     for await (const chunk of stream) {
@@ -258,13 +261,13 @@ Semoga betah di keluarga anime ini ♡
             }
 
             // =========================================================================
-            // B2. FITUR HD / UPSCALE GRATIS (.hd)
+            // B2. FITUR HD / UPSCALE (.hd) - SUPORT CAPTION & REPLY
             // =========================================================================
-            if (from === GROUP_ANOTHER && (cmd === '.hd' || cmd === '!hd' || cmd === '.upscale')) {
+            if (from === GROUP_ANOTHER && (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
-                    await sock.sendMessage(from, { text: `⚠️ Kirim atau balas foto sambil mengetik *.hd* untuk menjernihkan foto!` }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `⚠️ Kirim foto dengan caption *.hd* atau balas foto sambil mengetik *.hd* ya, *lek*!` }, { quoted: msg });
                     return;
                 }
 
@@ -317,7 +320,7 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomatis (+25 XP)!`;
 
                 if (from === GROUP_ANOTHER) {
-                    menuText += `\n\n✂️ *FITUR MULTIMEDIA KHUSUS*\n▫️ \`.bg\` — Hapus latar belakang foto.\n▫️ \`.hd\` — Jernihkan foto jadi HD.`;
+                    menuText += `\n\n✂️ *FITUR MULTIMEDIA KHUSUS*\n▫️ \`.bg\` (Kirim foto dengan caption .bg / reply foto ketik .bg)\n▫️ \`.hd\` (Kirim foto dengan caption .hd / reply foto ketik .hd)`;
                 }
 
                 await sock.sendMessage(from, { 
