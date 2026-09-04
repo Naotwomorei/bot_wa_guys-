@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
@@ -82,7 +82,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (ULTIMATE MEDIA READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (STREAM-BASED BG REMOVER READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -196,38 +196,30 @@ Semoga betah di keluarga anime ini ♡
             if (isSticker) return;
 
             // =========================================================================
-            // B1. FITUR BACKGROUND REMOVER (.bg) - MENGGUNAKAN DOWNLOAD MEDIAMESSAGE
+            // B1. FITUR BACKGROUND REMOVER (.bg) - MENGGUNAKAN STREAM DIRECT DOWNLOAD
             // =========================================================================
             const cmd = text.toLowerCase().trim();
             if (from === GROUP_ANOTHER && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
-                const hasMedia = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
+                // Ambil objek gambar dari pesan langsung atau pesan yang di-reply
+                const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
-                if (!hasMedia) {
+                if (!imageMessage) {
                     await sock.sendMessage(from, { text: `⚠️ Kirim foto dengan caption *.bg* atau balas foto sambil mengetik *.bg* ya, *lek*!` }, { quoted: msg });
                     return;
                 }
 
-                await sock.sendMessage(from, { text: `⏳ *[AI BG Remover]* Sedang mengunduh dan menghapus background...`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `⏳ *[AI BG Remover]* Sedang mengunduh dan menghapus background foto...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    // Menggunakan downloadMediaMessage yang akurat untuk mengambil buffer gambar penuh
-                    let targetMsg = msg;
-                    const quotedMsg = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
-                    if (quotedMsg?.imageMessage) {
-                        targetMsg = {
-                            key: {
-                                remoteJid: from,
-                                id: msg.message.extendedTextMessage.contextInfo.stanzaId,
-                                participant: msg.message.extendedTextMessage.contextInfo.participant
-                            },
-                            message: quotedMsg
-                        };
+                    // Unduh isi media langsung pakai stream bawaan baileys yang paling aman
+                    const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(imageMessage, 'image');
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) {
+                        buffer = Buffer.concat([buffer, chunk]);
                     }
 
-                    const mediaBuffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
-
-                    if (!mediaBuffer || mediaBuffer.length === 0) {
-                        await sock.sendMessage(from, { text: `❌ Gagal mengunduh gambar dari pesan tersebut.` }, { quoted: msg });
+                    if (!buffer || buffer.length === 0) {
+                        await sock.sendMessage(from, { text: `❌ Gagal mengunduh data gambar.` }, { quoted: msg });
                         return;
                     }
 
@@ -238,7 +230,7 @@ Semoga betah di keluarga anime ini ♡
                     }
 
                     const form = new FormData();
-                    form.append('image_file', mediaBuffer, { filename: 'input.jpg' });
+                    form.append('image_file', buffer, { filename: 'input.jpg' });
                     form.append('size', 'auto');
 
                     const response = await fetch('https://api.remove.bg/v1.0/removebg', {
@@ -278,9 +270,9 @@ Semoga betah di keluarga anime ini ♡
             // B2. FITUR HD / UPSCALE (.hd)
             // =========================================================================
             if (from === GROUP_ANOTHER && (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale'))) {
-                const hasMedia = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
+                const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
-                if (!hasMedia) {
+                if (!imageMessage) {
                     await sock.sendMessage(from, { text: `⚠️ Kirim foto dengan caption *.hd* atau balas foto sambil mengetik *.hd* ya, *lek*!` }, { quoted: msg });
                     return;
                 }
@@ -288,28 +280,19 @@ Semoga betah di keluarga anime ini ♡
                 await sock.sendMessage(from, { text: `⏳ *[HD Enhancer]* Sedang memproses foto...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    let targetMsg = msg;
-                    const quotedMsg = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
-                    if (quotedMsg?.imageMessage) {
-                        targetMsg = {
-                            key: {
-                                remoteJid: from,
-                                id: msg.message.extendedTextMessage.contextInfo.stanzaId,
-                                participant: msg.message.extendedTextMessage.contextInfo.participant
-                            },
-                            message: quotedMsg
-                        };
+                    const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(imageMessage, 'image');
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) {
+                        buffer = Buffer.concat([buffer, chunk]);
                     }
 
-                    const mediaBuffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
-
-                    if (!mediaBuffer || mediaBuffer.length === 0) {
+                    if (!buffer || buffer.length === 0) {
                         await sock.sendMessage(from, { text: `❌ Gagal mengunduh gambar.` }, { quoted: msg });
                         return;
                     }
 
                     await sock.sendMessage(from, { 
-                        image: mediaBuffer, 
+                        image: buffer, 
                         caption: `✅ *Foto Berhasil Dijernihkan (HD Mode)* 🚀\n👤 @${userJid.split('@')[0]}`,
                         mentions: [userJid]
                     }, { quoted: msg });
