@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
@@ -9,8 +9,8 @@ const scraper = require('./scraper');
 // =========================================================================
 // 📌 KONFIGURASI MULTI-GRUP & DATABASE LEVELING
 // =========================================================================
-const GROUP_LIMITED = '120363426460671438@g.us'; // ID Grup Kamu Saat Ini
-const GROUP_ANOTHER = '120363430375282152@g.us'; // ID Grup Lainnya
+const GROUP_LIMITED = '120363426460671438@g.us'; // Grup Utama (Obrolan & Downloader Standar)
+const GROUP_ANOTHER = '120363430375282152@g.us'; // Grup Khusus Multimedia (BG Remover & HD Foto)
 
 const DB_FILE = './database_leveling.json';
 
@@ -81,7 +81,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (MULTI-GROUP & SCRAPER READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (MULTI-GROUP & MULTIMEDIA TOOLS READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -191,6 +191,150 @@ Semoga betah di keluarga anime ini ♡
             const isSticker = msg.message.stickerMessage;
             if (isSticker) return;
 
+            // =========================================================================
+            // B1. FITUR BACKGROUND REMOVER (Hanya Aktif di GROUP_ANOTHER)
+            // =========================================================================
+            const isCommandBg = text.toLowerCase() === '.bg' || text.toLowerCase() === '!bg';
+            const isImageMessage = msg.message.imageMessage;
+            const quotedMessage = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+            const isQuotedImage = quotedMessage?.imageMessage;
+
+            if (from === GROUP_ANOTHER && isCommandBg) {
+                if (!isImageMessage && !isQuotedImage) {
+                    await sock.sendMessage(from, { text: `⚠️ Kirim atau balas foto sambil mengetik *.bg* untuk menghapus background-nya!` }, { quoted: msg });
+                    return;
+                }
+
+                await sock.sendMessage(from, { text: `⏳ *[AI Background Remover]* Sedang memproses foto...`, mentions: [userJid] }, { quoted: msg });
+
+                try {
+                    let targetMessage = msg;
+                    if (isQuotedImage) {
+                        targetMessage = {
+                            key: {
+                                remoteJid: from,
+                                id: msg.message.extendedTextMessage.contextInfo.stanzaId,
+                                participant: msg.message.extendedTextMessage.contextInfo.participant
+                            },
+                            message: quotedMessage
+                        };
+                    }
+
+                    const mediaBuffer = await downloadMediaMessage(targetMessage, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                    
+                    if (!mediaBuffer) {
+                        await sock.sendMessage(from, { text: `❌ Gagal mengunduh gambar.` }, { quoted: msg });
+                        return;
+                    }
+
+                    const FormData = require('form-data');
+                    const form = new FormData();
+                    form.append('image_file', mediaBuffer, { filename: 'image.jpg' });
+
+                    const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+                        method: 'POST',
+                        headers: {
+                            'X-Api-Key': process.env.REMOVE_BG_API_KEY || '' 
+                        },
+                        body: form
+                    });
+
+                    if (!response.ok) {
+                        await sock.sendMessage(from, { text: `⚠️ API Key Remove.BG belum diset di Environment Variables Railway!` }, { quoted: msg });
+                        return;
+                    }
+
+                    const arrayBuffer = await response.arrayBuffer();
+                    const resultBuffer = Buffer.from(arrayBuffer);
+
+                    await sock.sendMessage(from, { 
+                        image: resultBuffer, 
+                        caption: `✅ *Background Berhasil Dihapus!*\n👤 @${userJid.split('@')[0]}`,
+                        mentions: [userJid]
+                    }, { quoted: msg });
+
+                    await tambahXP(sock, from, userJid, 25, msg);
+                } catch (err) {
+                    console.error('Error BG Remover:', err);
+                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan saat menghapus background.` }, { quoted: msg });
+                }
+                return;
+            }
+
+            // =========================================================================
+            // B2. FITUR HD / UPSCALE FOTO (Hanya Aktif di GROUP_ANOTHER)
+            // =========================================================================
+            const isCommandHd = text.toLowerCase() === '.hd' || text.toLowerCase() === '.upscale' || text.toLowerCase() === '!hd';
+
+            if (from === GROUP_ANOTHER && isCommandHd) {
+                if (!isImageMessage && !isQuotedImage) {
+                    await sock.sendMessage(from, { text: `⚠️ Kirim atau balas foto sambil mengetik *.hd* untuk memperjelas kualitas foto!` }, { quoted: msg });
+                    return;
+                }
+
+                await sock.sendMessage(from, { text: `⏳ *[AI HD Enhancer]* Sedang meningkatkan kualitas foto (Upscaling)...`, mentions: [userJid] }, { quoted: msg });
+
+                try {
+                    let targetMessage = msg;
+                    if (isQuotedImage) {
+                        targetMessage = {
+                            key: {
+                                remoteJid: from,
+                                id: msg.message.extendedTextMessage.contextInfo.stanzaId,
+                                participant: msg.message.extendedTextMessage.contextInfo.participant
+                            },
+                            message: quotedMessage
+                        };
+                    }
+
+                    const mediaBuffer = await downloadMediaMessage(targetMessage, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                    
+                    if (!mediaBuffer) {
+                        await sock.sendMessage(from, { text: `❌ Gagal mengunduh gambar.` }, { quoted: msg });
+                        return;
+                    }
+
+                    // Menggunakan layanan AI Upscaler publik/pihak ketiga berkecepatan tinggi
+                    const FormData = require('form-data');
+                    const form = new FormData();
+                    form.append('image', mediaBuffer, { filename: 'photo.jpg' });
+
+                    // Endpoint open API upscaler atau alternatif stabil
+                    const response = await fetch('https://api.Upscale.media/v1/image/upscale', {
+                        method: 'POST',
+                        headers: {
+                            'x-api-key': process.env.UPSCALE_API_KEY || ''
+                        },
+                        body: form
+                    });
+
+                    if (!response.ok) {
+                        // Fallback jika API key belum ada, beri instruksi jelas
+                        await sock.sendMessage(from, { text: `⚠️ Untuk menggunakan fitur .hd, set *UPSCALE_API_KEY* di Environment Variables Railway kamu.` }, { quoted: msg });
+                        return;
+                    }
+
+                    const resJson = await response.json();
+                    const hdImageUrl = resJson?.data?.output?.url || resJson?.outputUrl;
+
+                    if (hdImageUrl) {
+                        await sock.sendMessage(from, { 
+                            image: { url: hdImageUrl }, 
+                            caption: `✅ *Foto Berhasil Dijernihkan (HD)!*\n👤 @${userJid.split('@')[0]}`,
+                            mentions: [userJid]
+                        }, { quoted: msg });
+
+                        await tambahXP(sock, from, userJid, 25, msg);
+                    } else {
+                        await sock.sendMessage(from, { text: `❌ Gagal memproses peningkatan kualitas foto.` }, { quoted: msg });
+                    }
+                } catch (err) {
+                    console.error('Error HD Upscale:', err);
+                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada fitur HD.` }, { quoted: msg });
+                }
+                return;
+            }
+
             const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
 
             // =========================================================================
@@ -202,7 +346,7 @@ Semoga betah di keluarga anime ini ♡
                 text.toLowerCase() === '!help' ||
                 text.toLowerCase() === '.help'
             ) {
-                const menuText = `🤖 *DAFTAR FITUR BOT A.P.A* 🤖
+                let menuText = `🤖 *DAFTAR FITUR BOT A.P.A* 🤖
 
 Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan:
 
@@ -215,6 +359,10 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 📥 *MULTI-PLATFORM DOWNLOADER*
 Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomatis (+25 XP)!`;
+
+                if (from === GROUP_ANOTHER) {
+                    menuText += `\n\n✂️ *FITUR KHUSUS MULTIMEDIA*\n▫️ \`.bg\` — Hapus latar belakang foto.\n▫️ \`.hd\` — Tingkatkan kualitas foto jadi HD.`;
+                }
 
                 await sock.sendMessage(from, { 
                     text: menuText, 
