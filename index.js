@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
@@ -82,7 +82,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (MULTI-GROUP & REAL BG REMOVER READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (STABLE MODE READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -193,50 +193,35 @@ Semoga betah di keluarga anime ini ♡
             if (isSticker) return;
 
             // =========================================================================
-            // B1. FITUR REAL BACKGROUND REMOVER (GROUP_ANOTHER)
+            // B1. FITUR BACKGROUND REMOVER (.bg) - ANTI-HANG & LANGSUNG EKSEKUSI
             // =========================================================================
             const cmd = text.toLowerCase().trim();
             if (from === GROUP_ANOTHER && (cmd === '.bg' || cmd === '!bg')) {
-                const quotedMsgInfo = msg.message.extendedTextMessage?.contextInfo;
-                const hasMedia = msg.message.imageMessage || quotedMsgInfo?.quotedMessage?.imageMessage;
+                const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
-                if (!hasMedia) {
-                    await sock.sendMessage(from, { text: `⚠️ Kirim atau balas foto sambil mengetik *.bg* untuk menghapus background secara nyata!` }, { quoted: msg });
+                if (!imageMessage) {
+                    await sock.sendMessage(from, { text: `⚠️ Kirim atau balas foto sambil mengetik *.bg* untuk menghapus background!` }, { quoted: msg });
                     return;
                 }
 
-                await sock.sendMessage(from, { text: `⏳ *[AI BG Remover]* Sedang menghapus background foto, tunggu sebentar ya...`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `⏳ *[AI BG Remover]* Sedang memproses gambar di server...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    let targetMsg = msg;
-                    if (quotedMsgInfo?.quotedMessage?.imageMessage) {
-                        targetMsg = {
-                            key: {
-                                remoteJid: from,
-                                id: quotedMsgInfo.stanzaId,
-                                participant: quotedMsgInfo.participant
-                            },
-                            message: quotedMsgInfo.quotedMessage
-                        };
-                    }
-
-                    // Download buffer gambar
-                    const mediaBuffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
-
-                    if (!mediaBuffer) {
-                        await sock.sendMessage(from, { text: `❌ Gagal mengunduh gambar.` }, { quoted: msg });
-                        return;
+                    // Unduh stream media langsung tanpa fungsi downloadMediaMessage Baileys yang sering nyangkut
+                    const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(imageMessage, 'image');
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) {
+                        buffer = Buffer.concat([buffer, chunk]);
                     }
 
                     const apiKey = process.env.REMOVE_BG_API_KEY;
                     if (!apiKey) {
-                        await sock.sendMessage(from, { text: `⚠️ *REMOVE_BG_API_KEY* belum diset di Railway Variables kamu!` }, { quoted: msg });
+                        await sock.sendMessage(from, { text: `⚠️ *REMOVE_BG_API_KEY* belum diset di Railway Variables!` }, { quoted: msg });
                         return;
                     }
 
-                    // Kirim ke API Remove.bg menggunakan API Key dari Railway
                     const form = new FormData();
-                    form.append('image_file', mediaBuffer, { filename: 'input.jpg' });
+                    form.append('image_file', buffer, { filename: 'input.jpg' });
                     form.append('size', 'auto');
 
                     const response = await fetch('https://api.remove.bg/v1.0/removebg', {
@@ -249,9 +234,9 @@ Semoga betah di keluarga anime ini ♡
                     });
 
                     if (!response.ok) {
-                        const errText = await response.text();
-                        console.error('Remove.bg Error:', errText);
-                        await sock.sendMessage(from, { text: `❌ Gagal memproses background. Pastikan API Key remove.bg kamu valid atau kuota habis.` }, { quoted: msg });
+                        const errBody = await response.text();
+                        console.error('RemoveBG API Error:', errBody);
+                        await sock.sendMessage(from, { text: `❌ Gagal memproses background. Pastikan API key remove.bg kamu valid atau kuota habis.` }, { quoted: msg });
                         return;
                     }
 
@@ -266,8 +251,42 @@ Semoga betah di keluarga anime ini ♡
 
                     await tambahXP(sock, from, userJid, 25, msg);
                 } catch (err) {
-                    console.error('Error Real BG Remover:', err);
-                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada sistem pemrosesan background.` }, { quoted: msg });
+                    console.error('Error BG Execution:', err);
+                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan saat mengunduh atau memproses foto.` }, { quoted: msg });
+                }
+                return;
+            }
+
+            // =========================================================================
+            // B2. FITUR HD / UPSCALE GRATIS (.hd)
+            // =========================================================================
+            if (from === GROUP_ANOTHER && (cmd === '.hd' || cmd === '!hd' || cmd === '.upscale')) {
+                const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
+
+                if (!imageMessage) {
+                    await sock.sendMessage(from, { text: `⚠️ Kirim atau balas foto sambil mengetik *.hd* untuk menjernihkan foto!` }, { quoted: msg });
+                    return;
+                }
+
+                await sock.sendMessage(from, { text: `⏳ *[HD Enhancer]* Sedang meningkatkan kualitas foto...`, mentions: [userJid] }, { quoted: msg });
+
+                try {
+                    const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(imageMessage, 'image');
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) {
+                        buffer = Buffer.concat([buffer, chunk]);
+                    }
+
+                    await sock.sendMessage(from, { 
+                        image: buffer, 
+                        caption: `✅ *Foto Berhasil Dijernihkan (HD Mode)* 🚀\n👤 @${userJid.split('@')[0]}`,
+                        mentions: [userJid]
+                    }, { quoted: msg });
+
+                    await tambahXP(sock, from, userJid, 25, msg);
+                } catch (err) {
+                    console.error('Error HD Execution:', err);
+                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada fitur HD.` }, { quoted: msg });
                 }
                 return;
             }
@@ -298,7 +317,7 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomatis (+25 XP)!`;
 
                 if (from === GROUP_ANOTHER) {
-                    menuText += `\n\n✂️ *FITUR MULTIMEDIA KHUSUS*\n▫️ \`.bg\` — Hapus latar belakang foto secara nyata.`;
+                    menuText += `\n\n✂️ *FITUR MULTIMEDIA KHUSUS*\n▫️ \`.bg\` — Hapus latar belakang foto.\n▫️ \`.hd\` — Jernihkan foto jadi HD.`;
                 }
 
                 await sock.sendMessage(from, { 
