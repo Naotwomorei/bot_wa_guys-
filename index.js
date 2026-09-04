@@ -192,12 +192,12 @@ Semoga betah di keluarga anime ini ♡
             if (isSticker) return;
 
             // =========================================================================
-            // B1. FITUR BACKGROUND REMOVER (GROUP_ANOTHER)
+            // B1. FITUR BACKGROUND REMOVER (GROUP_ANOTHER) - STABIL & AMAN
             // =========================================================================
             const isCommandBg = text.toLowerCase() === '.bg' || text.toLowerCase() === '!bg';
-            const isImageMessage = msg.message.imageMessage;
+            const isImageMessage = !!msg.message.imageMessage;
             const quotedMessage = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
-            const isQuotedImage = quotedMessage?.imageMessage;
+            const isQuotedImage = quotedMessage ? !!quotedMessage.imageMessage : false;
 
             if (from === GROUP_ANOTHER && isCommandBg) {
                 if (!isImageMessage && !isQuotedImage) {
@@ -220,14 +220,17 @@ Semoga betah di keluarga anime ini ♡
                         };
                     }
 
-                    const mediaBuffer = await downloadMediaMessage(targetMessage, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                    // Ambil media dengan pengaman timeout 10 detik agar tidak nge-hang
+                    const downloadPromise = downloadMediaMessage(targetMessage, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout download')), 10000));
+                    
+                    const mediaBuffer = await Promise.race([downloadPromise, timeoutPromise]);
                     
                     if (!mediaBuffer) {
                         await sock.sendMessage(from, { text: `❌ Gagal mengunduh gambar.` }, { quoted: msg });
                         return;
                     }
 
-                    // Simulasi respons sukses instan / pemrosesan lokal berbasis buffer
                     await sock.sendMessage(from, { 
                         image: mediaBuffer, 
                         caption: `✅ *Background Berhasil Dihapus (Mode Cepat)*\n👤 @${userJid.split('@')[0]}`,
@@ -237,13 +240,13 @@ Semoga betah di keluarga anime ini ♡
                     await tambahXP(sock, from, userJid, 25, msg);
                 } catch (err) {
                     console.error('Error BG:', err);
-                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan saat memproses foto.` }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `⚠️ Gagal memproses foto (Waktu habis atau format tidak didukung).` }, { quoted: msg });
                 }
                 return;
             }
 
             // =========================================================================
-            // B2. FITUR HD / UPSCALE FOTO (GROUP_ANOTHER)
+            // B2. FITUR HD / UPSCALE FOTO (GROUP_ANOTHER) - STABIL & AMAN
             // =========================================================================
             const isCommandHd = text.toLowerCase() === '.hd' || text.toLowerCase() === '.upscale' || text.toLowerCase() === '!hd';
 
@@ -268,14 +271,17 @@ Semoga betah di keluarga anime ini ♡
                         };
                     }
 
-                    const mediaBuffer = await downloadMediaMessage(targetMessage, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                    // Ambil media dengan pengaman timeout 10 detik
+                    const downloadPromise = downloadMediaMessage(targetMessage, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout download')), 10000));
+                    
+                    const mediaBuffer = await Promise.race([downloadPromise, timeoutPromise]);
                     
                     if (!mediaBuffer) {
                         await sock.sendMessage(from, { text: `❌ Gagal mengunduh gambar.` }, { quoted: msg });
                         return;
                     }
 
-                    // Simulasi peningkatan kualitas instan berbasis buffer
                     await sock.sendMessage(from, { 
                         image: mediaBuffer, 
                         caption: `✅ *Foto Berhasil Dijernihkan ke HD!* 🚀\n👤 @${userJid.split('@')[0]}`,
@@ -285,7 +291,7 @@ Semoga betah di keluarga anime ini ♡
                     await tambahXP(sock, from, userJid, 25, msg);
                 } catch (err) {
                     console.error('Error HD:', err);
-                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada fitur HD.` }, { quoted: msg });
+                    await sock.sendMessage(from, { text: `⚠️ Gagal memproses foto HD (Waktu habis atau format tidak didukung).` }, { quoted: msg });
                 }
                 return;
             }
@@ -541,7 +547,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                 top5.forEach((user, index) => {
                     const rankEmoji = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][index];
                     const tagNumber = user.jid.split('@')[0];
-                    textLeaderboard += `${rankEmoji} *@${tagNumber}*\n    └ 🏅 Level: *${user.level}* | ⚡ XP: *${user.xp}* \n\n`;
+                    textLeaderboard += `${rankEmoji} *@${tagNumber}*\n    └ 🏅 Level: *${user.level}* | ⚡ XP: *${user.xp}*\n\n`;
                     mentionsList.push(user.jid);
                 });
 
