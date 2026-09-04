@@ -2,7 +2,7 @@ const { default: makeWASocket, useMultiFileAuthState, downloadMediaMessage } = r
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
-const FormData = require('form-data'); // Pastikan package form-data sudah terinstall di node_modules
+const FormData = require('form-data');
 
 // Panggil Master Scraper dari file scraper.js
 const scraper = require('./scraper');
@@ -230,11 +230,11 @@ Semoga betah di keluarga anime ini ♡
 
                     const apiKey = process.env.REMOVE_BG_API_KEY;
                     if (!apiKey) {
-                        await sock.sendMessage(from, { text: `⚠️ *REMOVE_BG_API_KEY* belum diset di Railway Variables kamu! Silakan daftar gratis di remove.bg lalu masukkan kuncinya.` }, { quoted: msg });
+                        await sock.sendMessage(from, { text: `⚠️ *REMOVE_BG_API_KEY* belum diset di Railway Variables kamu!` }, { quoted: msg });
                         return;
                     }
 
-                    // Kirim ke API Remove.bg
+                    // Kirim ke API Remove.bg menggunakan API Key dari Railway
                     const form = new FormData();
                     form.append('image_file', mediaBuffer, { filename: 'input.jpg' });
                     form.append('size', 'auto');
@@ -251,7 +251,7 @@ Semoga betah di keluarga anime ini ♡
                     if (!response.ok) {
                         const errText = await response.text();
                         console.error('Remove.bg Error:', errText);
-                        await sock.sendMessage(from, { text: `❌ Gagal memproses background. Pastikan API Key remove.bg kamu valid.` }, { quoted: msg });
+                        await sock.sendMessage(from, { text: `❌ Gagal memproses background. Pastikan API Key remove.bg kamu valid atau kuota habis.` }, { quoted: msg });
                         return;
                     }
 
