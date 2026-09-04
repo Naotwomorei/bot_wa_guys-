@@ -2,6 +2,7 @@ const { default: makeWASocket, useMultiFileAuthState, downloadMediaMessage } = r
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
+const FormData = require('form-data'); // Pastikan package form-data sudah terinstall di node_modules
 
 // Panggil Master Scraper dari file scraper.js
 const scraper = require('./scraper');
@@ -81,7 +82,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (MULTI-GROUP & MEDIA TOOLS READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (MULTI-GROUP & REAL BG REMOVER READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -192,106 +193,81 @@ Semoga betah di keluarga anime ini ♡
             if (isSticker) return;
 
             // =========================================================================
-            // B1. FITUR BACKGROUND REMOVER (GROUP_ANOTHER) - STABIL & AMAN
+            // B1. FITUR REAL BACKGROUND REMOVER (GROUP_ANOTHER)
             // =========================================================================
-            const isCommandBg = text.toLowerCase() === '.bg' || text.toLowerCase() === '!bg';
-            const isImageMessage = !!msg.message.imageMessage;
-            const quotedMessage = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
-            const isQuotedImage = quotedMessage ? !!quotedMessage.imageMessage : false;
+            const cmd = text.toLowerCase().trim();
+            if (from === GROUP_ANOTHER && (cmd === '.bg' || cmd === '!bg')) {
+                const quotedMsgInfo = msg.message.extendedTextMessage?.contextInfo;
+                const hasMedia = msg.message.imageMessage || quotedMsgInfo?.quotedMessage?.imageMessage;
 
-            if (from === GROUP_ANOTHER && isCommandBg) {
-                if (!isImageMessage && !isQuotedImage) {
-                    await sock.sendMessage(from, { text: `⚠️ Kirim atau balas foto sambil mengetik *.bg* untuk menghapus background!` }, { quoted: msg });
+                if (!hasMedia) {
+                    await sock.sendMessage(from, { text: `⚠️ Kirim atau balas foto sambil mengetik *.bg* untuk menghapus background secara nyata!` }, { quoted: msg });
                     return;
                 }
 
-                await sock.sendMessage(from, { text: `⏳ *[BG Remover]* Sabar *lek*, bot sedang memproses gambar...`, mentions: [userJid] }, { quoted: msg });
+                await sock.sendMessage(from, { text: `⏳ *[AI BG Remover]* Sedang menghapus background foto, tunggu sebentar ya...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    let targetMessage = msg;
-                    if (isQuotedImage) {
-                        targetMessage = {
+                    let targetMsg = msg;
+                    if (quotedMsgInfo?.quotedMessage?.imageMessage) {
+                        targetMsg = {
                             key: {
                                 remoteJid: from,
-                                id: msg.message.extendedTextMessage.contextInfo.stanzaId,
-                                participant: msg.message.extendedTextMessage.contextInfo.participant
+                                id: quotedMsgInfo.stanzaId,
+                                participant: quotedMsgInfo.participant
                             },
-                            message: quotedMessage
+                            message: quotedMsgInfo.quotedMessage
                         };
                     }
 
-                    // Ambil media dengan pengaman timeout 10 detik agar tidak nge-hang
-                    const downloadPromise = downloadMediaMessage(targetMessage, 'buffer', {}, { logger: pino({ level: 'silent' }) });
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout download')), 10000));
-                    
-                    const mediaBuffer = await Promise.race([downloadPromise, timeoutPromise]);
-                    
+                    // Download buffer gambar
+                    const mediaBuffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
+
                     if (!mediaBuffer) {
                         await sock.sendMessage(from, { text: `❌ Gagal mengunduh gambar.` }, { quoted: msg });
                         return;
                     }
 
-                    await sock.sendMessage(from, { 
-                        image: mediaBuffer, 
-                        caption: `✅ *Background Berhasil Dihapus (Mode Cepat)*\n👤 @${userJid.split('@')[0]}`,
-                        mentions: [userJid]
-                    }, { quoted: msg });
-
-                    await tambahXP(sock, from, userJid, 25, msg);
-                } catch (err) {
-                    console.error('Error BG:', err);
-                    await sock.sendMessage(from, { text: `⚠️ Gagal memproses foto (Waktu habis atau format tidak didukung).` }, { quoted: msg });
-                }
-                return;
-            }
-
-            // =========================================================================
-            // B2. FITUR HD / UPSCALE FOTO (GROUP_ANOTHER) - STABIL & AMAN
-            // =========================================================================
-            const isCommandHd = text.toLowerCase() === '.hd' || text.toLowerCase() === '.upscale' || text.toLowerCase() === '!hd';
-
-            if (from === GROUP_ANOTHER && isCommandHd) {
-                if (!isImageMessage && !isQuotedImage) {
-                    await sock.sendMessage(from, { text: `⚠️ Kirim atau balas foto sambil mengetik *.hd* untuk menjernihkan foto!` }, { quoted: msg });
-                    return;
-                }
-
-                await sock.sendMessage(from, { text: `⏳ *[HD Enhancer]* Sabar *lek*, bot sedang meningkatkan kualitas foto...`, mentions: [userJid] }, { quoted: msg });
-
-                try {
-                    let targetMessage = msg;
-                    if (isQuotedImage) {
-                        targetMessage = {
-                            key: {
-                                remoteJid: from,
-                                id: msg.message.extendedTextMessage.contextInfo.stanzaId,
-                                participant: msg.message.extendedTextMessage.contextInfo.participant
-                            },
-                            message: quotedMessage
-                        };
-                    }
-
-                    // Ambil media dengan pengaman timeout 10 detik
-                    const downloadPromise = downloadMediaMessage(targetMessage, 'buffer', {}, { logger: pino({ level: 'silent' }) });
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout download')), 10000));
-                    
-                    const mediaBuffer = await Promise.race([downloadPromise, timeoutPromise]);
-                    
-                    if (!mediaBuffer) {
-                        await sock.sendMessage(from, { text: `❌ Gagal mengunduh gambar.` }, { quoted: msg });
+                    const apiKey = process.env.REMOVE_BG_API_KEY;
+                    if (!apiKey) {
+                        await sock.sendMessage(from, { text: `⚠️ *REMOVE_BG_API_KEY* belum diset di Railway Variables kamu! Silakan daftar gratis di remove.bg lalu masukkan kuncinya.` }, { quoted: msg });
                         return;
                     }
 
+                    // Kirim ke API Remove.bg
+                    const form = new FormData();
+                    form.append('image_file', mediaBuffer, { filename: 'input.jpg' });
+                    form.append('size', 'auto');
+
+                    const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+                        method: 'POST',
+                        headers: {
+                            'X-Api-Key': apiKey,
+                            ...form.getHeaders()
+                        },
+                        body: form
+                    });
+
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        console.error('Remove.bg Error:', errText);
+                        await sock.sendMessage(from, { text: `❌ Gagal memproses background. Pastikan API Key remove.bg kamu valid.` }, { quoted: msg });
+                        return;
+                    }
+
+                    const arrayBuffer = await response.arrayBuffer();
+                    const resultBuffer = Buffer.from(arrayBuffer);
+
                     await sock.sendMessage(from, { 
-                        image: mediaBuffer, 
-                        caption: `✅ *Foto Berhasil Dijernihkan ke HD!* 🚀\n👤 @${userJid.split('@')[0]}`,
+                        image: resultBuffer, 
+                        caption: `✅ *Background Berhasil Dihapus!* ✂️\n👤 @${userJid.split('@')[0]}`,
                         mentions: [userJid]
                     }, { quoted: msg });
 
                     await tambahXP(sock, from, userJid, 25, msg);
                 } catch (err) {
-                    console.error('Error HD:', err);
-                    await sock.sendMessage(from, { text: `⚠️ Gagal memproses foto HD (Waktu habis atau format tidak didukung).` }, { quoted: msg });
+                    console.error('Error Real BG Remover:', err);
+                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada sistem pemrosesan background.` }, { quoted: msg });
                 }
                 return;
             }
@@ -322,7 +298,7 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomatis (+25 XP)!`;
 
                 if (from === GROUP_ANOTHER) {
-                    menuText += `\n\n✂️ *FITUR MULTIMEDIA KHUSUS*\n▫️ \`.bg\` — Hapus latar belakang foto.\n▫️ \`.hd\` — Jernihkan foto jadi HD.`;
+                    menuText += `\n\n✂️ *FITUR MULTIMEDIA KHUSUS*\n▫️ \`.bg\` — Hapus latar belakang foto secara nyata.`;
                 }
 
                 await sock.sendMessage(from, { 
