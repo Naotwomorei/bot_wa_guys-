@@ -1,8 +1,9 @@
-const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
+const ytSearch = require('yt-search');
 
 // Panggil Master Scraper dari file scraper.js
 const scraper = require('./scraper');
@@ -28,8 +29,9 @@ function saveDB() {
     fs.writeFileSync(DB_FILE, JSON.stringify(userDB, null, 2));
 }
 
-// Memory / Objek Sementara untuk Cooldown Chat (3 Detik)
+// Memory / Objek Sementara untuk Cooldown Chat & Sesi Lagu (.play)
 const cooldownXP = {};
+const searchSessions = {};
 
 // =========================================================================
 // 🎮 LOGIKA EFEK LEVELING & XP
@@ -82,7 +84,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (STREAM-BASED BG REMOVER READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (ALL FEATURES & .PLAY READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -196,11 +198,10 @@ Semoga betah di keluarga anime ini ♡
             if (isSticker) return;
 
             // =========================================================================
-            // B1. FITUR BACKGROUND REMOVER (.bg) - MENGGUNAKAN STREAM DIRECT DOWNLOAD
+            // B1. FITUR BACKGROUND REMOVER (.bg)
             // =========================================================================
             const cmd = text.toLowerCase().trim();
             if (from === GROUP_ANOTHER && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
-                // Ambil objek gambar dari pesan langsung atau pesan yang di-reply
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
@@ -211,14 +212,9 @@ Semoga betah di keluarga anime ini ♡
                 await sock.sendMessage(from, { text: `⏳ *[AI BG Remover]* Sedang mengunduh dan menghapus background foto...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    // Unduh isi media langsung pakai stream bawaan baileys yang paling aman
-                    const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(imageMessage, 'image');
-                    let buffer = Buffer.from([]);
-                    for await (const chunk of stream) {
-                        buffer = Buffer.concat([buffer, chunk]);
-                    }
+                    const mediaBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
 
-                    if (!buffer || buffer.length === 0) {
+                    if (!mediaBuffer || mediaBuffer.length === 0) {
                         await sock.sendMessage(from, { text: `❌ Gagal mengunduh data gambar.` }, { quoted: msg });
                         return;
                     }
@@ -230,7 +226,7 @@ Semoga betah di keluarga anime ini ♡
                     }
 
                     const form = new FormData();
-                    form.append('image_file', buffer, { filename: 'input.jpg' });
+                    form.append('image_file', mediaBuffer, { filename: 'input.jpg' });
                     form.append('size', 'auto');
 
                     const response = await fetch('https://api.remove.bg/v1.0/removebg', {
@@ -280,19 +276,15 @@ Semoga betah di keluarga anime ini ♡
                 await sock.sendMessage(from, { text: `⏳ *[HD Enhancer]* Sedang memproses foto...`, mentions: [userJid] }, { quoted: msg });
 
                 try {
-                    const stream = await require('@whiskeysockets/baileys').downloadContentFromMessage(imageMessage, 'image');
-                    let buffer = Buffer.from([]);
-                    for await (const chunk of stream) {
-                        buffer = Buffer.concat([buffer, chunk]);
-                    }
+                    const mediaBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }) });
 
-                    if (!buffer || buffer.length === 0) {
+                    if (!mediaBuffer || mediaBuffer.length === 0) {
                         await sock.sendMessage(from, { text: `❌ Gagal mengunduh gambar.` }, { quoted: msg });
                         return;
                     }
 
                     await sock.sendMessage(from, { 
-                        image: buffer, 
+                        image: mediaBuffer, 
                         caption: `✅ *Foto Berhasil Dijernihkan (HD Mode)* 🚀\n👤 @${userJid.split('@')[0]}`,
                         mentions: [userJid]
                     }, { quoted: msg });
@@ -305,10 +297,122 @@ Semoga betah di keluarga anime ini ♡
                 return;
             }
 
+            // =========================================================================
+            // C. FITUR INTERAKTIF .PLAY & REPLY PILIHAN NOMOR (MUSIK + LIRIK)
+            // =========================================================================
+            if (text.toLowerCase().startsWith('.play') || text.toLowerCase().startsWith('!play')) {
+                const queryLagu = text.slice(5).trim();
+                if (!queryLagu) {
+                    await sock.sendMessage(from, { text: `⚠️ Masukkan judul lagunya, *lek*! Contoh: \`.play monolog\`` }, { quoted: msg });
+                    return;
+                }
+
+                await sock.sendMessage(from, { text: `🎵 *[Music Search]* Sedang mencari lagu "${queryLagu}"...`, mentions: [userJid] }, { quoted: msg });
+
+                try {
+                    const searchResults = await ytSearch(queryLagu);
+                    const videos = searchResults.videos.slice(0, 5); // Ambil 5 teratas
+
+                    if (videos.length === 0) {
+                        await sock.sendMessage(from, { text: `❌ Lagu tidak ditemukan.` }, { quoted: msg });
+                        return;
+                    }
+
+                    let listText = `🎵 *Hasil pencarian: ${queryLagu}*\n\n`;
+                    const sessionTracks = [];
+
+                    videos.forEach((vid, index) => {
+                        listText += `${index + 1}. *${vid.title}* [${vid.timestamp}]\n`;
+                        sessionTracks.push({
+                            title: vid.title,
+                            url: vid.url,
+                            author: vid.author.name
+                        });
+                    });
+
+                    listText += `\n*Balas pesan ini dengan nomor yang sesuai (1-5)*`;
+
+                    const sentMsg = await sock.sendMessage(from, { text: listText, mentions: [userJid] }, { quoted: msg });
+                    
+                    if (sentMsg && sentMsg.key) {
+                        searchSessions[sentMsg.key.id] = {
+                            userJid: userJid,
+                            tracks: sessionTracks
+                        };
+
+                        setTimeout(() => {
+                            delete searchSessions[sentMsg.key.id];
+                        }, 120000); // Hapus sesi setelah 2 menit
+                    }
+                } catch (err) {
+                    console.error('Error Search Music:', err);
+                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan saat mencari lagu.` }, { quoted: msg });
+                }
+                return;
+            }
+
+            // Deteksi balasan (reply) angka untuk memilih lagu dari list
+            const quotedContext = msg.message.extendedTextMessage?.contextInfo;
+            if (quotedContext && searchSessions[quotedContext.stanzaId]) {
+                const sessionData = searchSessions[quotedContext.stanzaId];
+                
+                if (sessionData.userJid === userJid) {
+                    const pilihanAngka = parseInt(text.trim());
+
+                    if (!isNaN(pilihanAngka) && pilihanAngka >= 1 && pilihanAngka <= sessionData.tracks.length) {
+                        const selectedTrack = sessionData.tracks[pilihanAngka - 1];
+
+                        await sock.sendMessage(from, { text: `⏳ *[Downloader]* Mengunduh lagu *${selectedTrack.title}* beserta liriknya...`, mentions: [userJid] }, { quoted: msg });
+
+                        try {
+                            const resData = await scraper.youtube.ytmp3(selectedTrack.url, "mp3");
+
+                            if (resData && resData.status && resData.result?.downloads?.[0]?.url) {
+                                const audioUrl = resData.result.downloads[0].url;
+
+                                let lirikLagu = "Lirik tidak ditemukan.";
+                                try {
+                                    const lyricRes = await fetch(`https://api.vkrdev.eu.org/api/search/lyrics?query=${encodeURIComponent(selectedTrack.title)}`);
+                                    const lyricJson = await lyricRes.json();
+                                    if (lyricJson && lyricJson.lyrics) {
+                                        lirikLagu = lyricJson.lyrics;
+                                    }
+                                } catch (e) {
+                                    lirikLagu = `Lirik untuk "${selectedTrack.title}" otomatis diambil dari sistem penelusuran musik.`;
+                                }
+
+                                // Kirim Lirik terlebih dahulu
+                                await sock.sendMessage(from, { 
+                                    text: `🎶 *${selectedTrack.title}*\n\n${lirikLagu}\n\n*[Source: Music Lyrics Database]*`,
+                                    mentions: [userJid]
+                                }, { quoted: msg });
+
+                                // Kirim Audio / Musiknya
+                                await sock.sendMessage(from, { 
+                                    audio: { url: audioUrl }, 
+                                    mimetype: 'audio/mp4',
+                                    ptt: false,
+                                    caption: `✅ Berhasil mengunduh *${selectedTrack.title}*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                                }, { quoted: msg });
+
+                                await tambahXP(sock, from, userJid, 25, msg);
+                                delete searchSessions[quotedContext.stanzaId];
+                            } else {
+                                await sock.sendMessage(from, { text: `❌ Gagal mengunduh file audio lagu tersebut.` }, { quoted: msg });
+                            }
+                        } catch (err) {
+                            console.error('Error Download Selected Music:', err);
+                            await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan saat memproses unduhan musik.` }, { quoted: msg });
+                        }
+                        return;
+                    }
+                }
+            }
+
             const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
 
             // =========================================================================
-            // F. COMMAND MENU / BANTUAN
+            // D. COMMAND MENU / BANTUAN
             // =========================================================================
             if (
                 text.toLowerCase() === '!menu' || 
@@ -322,6 +426,9 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 
 ✨ *GROQ AI (AKTIF)*
 ▫️ \`.meta [pertanyaan]\` atau \`.ai [pertanyaan]\` — Tanya jawab AI cerdas.
+
+🎵 *MUSIC PLAYER & LIRIK*
+▫️ \`.play [judul lagu]\` — Cari lagu, pilih nomornya, dan bot kirim musik + lirik!
 
 📊 *SISTEM LEVELING & XP*
 ▫️ \`!level\` atau \`.level\` — Cek level & XP kamu.
@@ -343,7 +450,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
             }
 
             // =========================================================================
-            // G. FITUR GROQ AI (AKTIF DI SEMUA GRUP)
+            // E. FITUR GROQ AI (AKTIF DI SEMUA GRUP)
             // =========================================================================
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
@@ -407,7 +514,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
             }
 
             // =========================================================================
-            // H. DOWNLOADER YOUTUBE MP3
+            // F. DOWNLOADER YOUTUBE LINK LANGSUNG
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
                 await sock.sendMessage(from, { text: `⏳ *[YouTube MP3]*\nSabar bree, bot lagi proses convert audio...`, mentions: [userJid] }, { quoted: msg });
@@ -437,7 +544,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
             }
 
             // =========================================================================
-            // I. DOWNLOADER TIKTOK
+            // G. DOWNLOADER TIKTOK
             // =========================================================================
             if (cleanUrl && cleanUrl.includes('tiktok.com')) {
                 await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]* Sedang mengunduh...' }, { quoted: msg });
@@ -462,7 +569,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
             }
 
             // =========================================================================
-            // J. DOWNLOADER INSTAGRAM (VIA SCRAPER LOKAL)
+            // H. DOWNLOADER INSTAGRAM
             // =========================================================================
             if (cleanUrl && cleanUrl.includes('instagram.com')) {
                 await sock.sendMessage(from, { text: `⏳ *[Instagram Downloader]* Sedang memproses...`, mentions: [userJid] }, { quoted: msg });
@@ -489,7 +596,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
             }
 
             // =========================================================================
-            // K. DOWNLOADER FACEBOOK & PINTEREST (VIA SCRAPER LOKAL)
+            // I. DOWNLOADER FACEBOOK & PINTEREST
             // =========================================================================
             if (cleanUrl && (cleanUrl.includes('facebook.com') || cleanUrl.includes('fb.watch'))) {
                 await sock.sendMessage(from, { text: `⏳ *[Facebook Downloader]* Memproses...`, mentions: [userJid] }, { quoted: msg });
@@ -528,7 +635,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
             }
 
             // =========================================================================
-            // L. COMMAND LEVEL & LEADERBOARD
+            // J. COMMAND LEVEL & LEADERBOARD
             // =========================================================================
             if (text.toLowerCase() === '!level' || text.toLowerCase() === '.level') {
                 const userData = userDB[userJid] || { xp: 0, level: 1 };
@@ -565,7 +672,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
             }
 
             // =========================================================================
-            // M. COOLDOWN XP CHAT BIASA (+10 XP)
+            // K. COOLDOWN XP CHAT BIASA (+10 XP)
             // =========================================================================
             const now = Date.now();
             const cooldownTime = 3000; 
