@@ -18,8 +18,8 @@ const GROUP_ANOTHER = '120363430375282152@g.us'; // Grup Khusus Multimedia (BG R
 // 🎯 DAFTAR NOMOR VIP (Bisa akses bot dimanapun / chat pribadi / luar grup)
 // Ganti nomor di bawah ini dengan nomor WhatsApp kamu dan nomor teman kamu (format: 628xxxxxxxx@s.whatsapp.net)
 const VIP_USERS = [
-    '6283171206145@s.whatsapp.net', // Contoh nomor kamu
-    '628xxxxxxxxxx@s.whatsapp.net'  // Contoh nomor teman kamu
+    '6285831157623@s.whatsapp.net', // Contoh nomor kamu
+    '6283875433777@s.whatsapp.net'  // Contoh nomor teman kamu
 ];
 
 const DB_FILE = './database_leveling.json';
