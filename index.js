@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 const ytSearch = require('yt-search');
-const lyricFinder = require('lyric-finder');
 
 // Panggil Master Scraper dari file scraper.js
 const scraper = require('./scraper');
@@ -16,10 +15,9 @@ const GROUP_LIMITED = '120363426460671438@g.us'; // Grup Utama (Obrolan & Downlo
 const GROUP_ANOTHER = '120363430375282152@g.us'; // Grup Khusus Multimedia (BG Remover & HD Foto)
 
 // 🎯 DAFTAR NOMOR VIP (Bisa akses bot dimanapun / chat pribadi / luar grup)
-// Ganti nomor di bawah ini dengan nomor WhatsApp kamu dan nomor teman kamu (format: 628xxxxxxxx@s.whatsapp.net)
 const VIP_USERS = [
-    '6285831157623@s.whatsapp.net', // Contoh nomor kamu
-    '6283875433777@s.whatsapp.net'  // Contoh nomor teman kamu
+    '6285831157623@s.whatsapp.net', // Nomor kamu
+    '6283875433777@s.whatsapp.net'  // Nomor teman kamu
 ];
 
 const DB_FILE = './database_leveling.json';
@@ -92,7 +90,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (VIP WHITELIST & ALL FEATURES READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & STABIL (VIP & ALL FEATURES READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -310,7 +308,7 @@ Semoga betah di keluarga anime ini ♡
             }
 
             // =========================================================================
-            // C. FITUR INTERAKTIF .PLAY & REPLY PILIHAN NOMOR (MUSIK + LIRIK LYRIC-FINDER)
+            // C. FITUR INTERAKTIF .PLAY & REPLY PILIHAN NOMOR (MUSIK + LIRIK AMAN)
             // =========================================================================
             if (text.toLowerCase().startsWith('.play') || text.toLowerCase().startsWith('!play')) {
                 const queryLagu = text.slice(5).trim();
@@ -382,12 +380,13 @@ Semoga betah di keluarga anime ini ♡
                             if (resData && resData.status && resData.result?.downloads?.[0]?.url) {
                                 const audioUrl = resData.result.downloads[0].url;
 
-                                // Ambil lirik menggunakan lyric-finder
+                                // Ambil lirik dari API publik yang aman
                                 let lirikLagu = "Lirik tidak ditemukan.";
                                 try {
-                                    const foundLyrics = await lyricFinder('', selectedTrack.title);
-                                    if (foundLyrics) {
-                                        lirikLagu = foundLyrics;
+                                    const lyricRes = await fetch(`https://api.vkrdev.eu.org/api/search/lyrics?query=${encodeURIComponent(selectedTrack.title)}`);
+                                    const lyricJson = await lyricRes.json();
+                                    if (lyricJson && lyricJson.lyrics) {
+                                        lirikLagu = lyricJson.lyrics;
                                     }
                                 } catch (e) {
                                     lirikLagu = `Lirik untuk "${selectedTrack.title}" tidak tersedia secara publik.`;
@@ -395,7 +394,7 @@ Semoga betah di keluarga anime ini ♡
 
                                 // Kirim Lirik terlebih dahulu
                                 await sock.sendMessage(from, { 
-                                    text: `🎶 *${selectedTrack.title}*\n\n${lirikLagu}\n\n*[Source: LyricFinder Database]*`,
+                                    text: `🎶 *${selectedTrack.title}*\n\n${lirikLagu}\n\n*[Source: API Lirik]*`,
                                     mentions: [userJid]
                                 }, { quoted: msg });
 
