@@ -4,15 +4,23 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 const ytSearch = require('yt-search');
+const lyricFinder = require('lyric-finder');
 
 // Panggil Master Scraper dari file scraper.js
 const scraper = require('./scraper');
 
 // =========================================================================
-// 📌 KONFIGURASI MULTI-GRUP & DATABASE LEVELING
+// 📌 KONFIGURASI MULTI-GRUP & WHITELIST NOMOR VIP
 // =========================================================================
 const GROUP_LIMITED = '120363426460671438@g.us'; // Grup Utama (Obrolan & Downloader Standar)
 const GROUP_ANOTHER = '120363430375282152@g.us'; // Grup Khusus Multimedia (BG Remover & HD Foto)
+
+// 🎯 DAFTAR NOMOR VIP (Bisa akses bot dimanapun / chat pribadi / luar grup)
+// Ganti nomor di bawah ini dengan nomor WhatsApp kamu dan nomor teman kamu (format: 628xxxxxxxx@s.whatsapp.net)
+const VIP_USERS = [
+    '6283171206145@s.whatsapp.net', // Contoh nomor kamu
+    '628xxxxxxxxxx@s.whatsapp.net'  // Contoh nomor teman kamu
+];
 
 const DB_FILE = './database_leveling.json';
 
@@ -84,7 +92,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (ALL FEATURES & .PLAY READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & AKTIF (VIP WHITELIST & ALL FEATURES READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -190,8 +198,12 @@ Semoga betah di keluarga anime ini ♡
                 return;
             }
 
-            // 🔒 FILTER UTAMA: Hanya proses pesan grup jika berasal dari grup terdaftar!
-            if (from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
+            // 🔒 FILTER AKSES UTAMA (MULTI-GRUP & VIP WHITELIST)
+            const isVipUser = VIP_USERS.includes(userJid);
+            const isPrivateChat = !from.endsWith('@g.us');
+
+            // Jika bukan user VIP, bukan chat pribadi, dan bukan dari grup terdaftar -> abaikan pesan
+            if (!isVipUser && !isPrivateChat && from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
 
             // 🚫 FILTER 1: Jika pesan berupa Stiker, abaikan perhitungan XP
             const isSticker = msg.message.stickerMessage;
@@ -201,7 +213,7 @@ Semoga betah di keluarga anime ini ♡
             // B1. FITUR BACKGROUND REMOVER (.bg)
             // =========================================================================
             const cmd = text.toLowerCase().trim();
-            if (from === GROUP_ANOTHER && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
+            if ((from === GROUP_ANOTHER || isPrivateChat) && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
@@ -265,7 +277,7 @@ Semoga betah di keluarga anime ini ♡
             // =========================================================================
             // B2. FITUR HD / UPSCALE (.hd)
             // =========================================================================
-            if (from === GROUP_ANOTHER && (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale'))) {
+            if ((from === GROUP_ANOTHER || isPrivateChat) && (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
@@ -298,7 +310,7 @@ Semoga betah di keluarga anime ini ♡
             }
 
             // =========================================================================
-            // C. FITUR INTERAKTIF .PLAY & REPLY PILIHAN NOMOR (MUSIK + LIRIK)
+            // C. FITUR INTERAKTIF .PLAY & REPLY PILIHAN NOMOR (MUSIK + LIRIK LYRIC-FINDER)
             // =========================================================================
             if (text.toLowerCase().startsWith('.play') || text.toLowerCase().startsWith('!play')) {
                 const queryLagu = text.slice(5).trim();
@@ -370,20 +382,20 @@ Semoga betah di keluarga anime ini ♡
                             if (resData && resData.status && resData.result?.downloads?.[0]?.url) {
                                 const audioUrl = resData.result.downloads[0].url;
 
+                                // Ambil lirik menggunakan lyric-finder
                                 let lirikLagu = "Lirik tidak ditemukan.";
                                 try {
-                                    const lyricRes = await fetch(`https://api.vkrdev.eu.org/api/search/lyrics?query=${encodeURIComponent(selectedTrack.title)}`);
-                                    const lyricJson = await lyricRes.json();
-                                    if (lyricJson && lyricJson.lyrics) {
-                                        lirikLagu = lyricJson.lyrics;
+                                    const foundLyrics = await lyricFinder('', selectedTrack.title);
+                                    if (foundLyrics) {
+                                        lirikLagu = foundLyrics;
                                     }
                                 } catch (e) {
-                                    lirikLagu = `Lirik untuk "${selectedTrack.title}" otomatis diambil dari sistem penelusuran musik.`;
+                                    lirikLagu = `Lirik untuk "${selectedTrack.title}" tidak tersedia secara publik.`;
                                 }
 
                                 // Kirim Lirik terlebih dahulu
                                 await sock.sendMessage(from, { 
-                                    text: `🎶 *${selectedTrack.title}*\n\n${lirikLagu}\n\n*[Source: Music Lyrics Database]*`,
+                                    text: `🎶 *${selectedTrack.title}*\n\n${lirikLagu}\n\n*[Source: LyricFinder Database]*`,
                                     mentions: [userJid]
                                 }, { quoted: msg });
 
@@ -437,7 +449,7 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 📥 *MULTI-PLATFORM DOWNLOADER*
 Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomatis (+25 XP)!`;
 
-                if (from === GROUP_ANOTHER) {
+                if (from === GROUP_ANOTHER || isPrivateChat) {
                     menuText += `\n\n✂️ *FITUR MULTIMEDIA KHUSUS*\n▫️ \`.bg\` — Hapus latar belakang foto.\n▫️ \`.hd\` — Jernihkan foto jadi HD.`;
                 }
 
