@@ -14,10 +14,10 @@ const scraper = require('./scraper');
 const GROUP_LIMITED = '120363426460671438@g.us'; // Grup Utama (Obrolan & Downloader Standar)
 const GROUP_ANOTHER = '120363430375282152@g.us'; // Grup Khusus Multimedia (BG Remover & HD Foto)
 
-// 🎯 DAFTAR NOMOR VIP (Hanya nomor-nomor ini yang bisa memerintah bot)
-const VIP_USERS = [
-    '6285831157623@s.whatsapp.net', // Nomor kamu
-    '6283875433777@s.whatsapp.net'  // Nomor teman kamu
+// 🎯 DAFTAR NOMOR VIP (Cukup masukkan nomor HP saja tanpa @s.whatsapp.net)
+const VIP_NUMBERS = [
+    '6285831157623', // Nomor kamu
+    '6283875433777'  // Nomor teman kamu
 ];
 
 const DB_FILE = './database_leveling.json';
@@ -90,7 +90,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & STABIL (STRICT GROUP & VIP ONLY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & STABIL (FLEXIBLE VIP & GROUPS READY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -168,16 +168,15 @@ Semoga betah di keluarga anime ini ♡
                          msg.message.extendedTextMessage?.text || 
                          msg.message.imageMessage?.caption || '';
 
-            // 🔒 FILTER UTAMA 1: Bot HANYA merespons jika berasal dari 2 Grup Terdaftar saja!
-            // Chat pribadi (DM) / grup lain di luar ini akan diabaikan 100% (tidak dihitung XP, tidak merespons command)
-            if (from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
+            // 🔒 FILTER 1: Bot HANYA merespons jika dari 2 Grup Terdaftar ATAU Chat Pribadi (DM) kamu
+            const isPrivateChat = !from.endsWith('@g.us');
+            if (!isPrivateChat && from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
 
-            // 🔒 FILTER UTAMA 2: Perintah/Fitur Bot (seperti .play, .bg, .hd, .menu, dll) 
-            // HANYA bisa dijalankan oleh nomor VIP (Kamu & Temanmu). 
-            // Member lain di grup tetap bisa ngobrol biasa tanpa error.
-            const isVipUser = VIP_USERS.includes(userJid);
+            // 🔒 FILTER 2: Cek apakah pengirim adalah nomor VIP (mencocokkan nomor digit depannya)
+            const userNumber = userJid.split('@')[0].replace(/[^0-9]/g, '');
+            const isVipUser = VIP_NUMBERS.some(vip => userNumber.includes(vip));
 
-            // Jika bukan user VIP, abaikan semua command dan hentikan proses di sini
+            // Jika bukan user VIP, abaikan semua perintah bot (tapi member lain di grup tetap bisa chat biasa)
             if (!isVipUser) return;
 
             // 🚫 FILTER 3: Jika pesan berupa Stiker, abaikan
@@ -188,7 +187,7 @@ Semoga betah di keluarga anime ini ♡
             // B1. FITUR BACKGROUND REMOVER (.bg)
             // =========================================================================
             const cmd = text.toLowerCase().trim();
-            if (from === GROUP_ANOTHER && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
+            if (cmd.startsWith('.bg') || cmd.startsWith('!bg')) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
@@ -252,7 +251,7 @@ Semoga betah di keluarga anime ini ♡
             // =========================================================================
             // B2. FITUR HD / UPSCALE (.hd)
             // =========================================================================
-            if (from === GROUP_ANOTHER && (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale'))) {
+            if (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale')) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
@@ -298,7 +297,7 @@ Semoga betah di keluarga anime ini ♡
 
                 try {
                     const searchResults = await ytSearch(queryLagu);
-                    const videos = searchResults.videos.slice(0, 5); // Ambil 5 teratas
+                    const videos = searchResults.videos.slice(0, 5);
 
                     if (videos.length === 0) {
                         await sock.sendMessage(from, { text: `❌ Lagu tidak ditemukan.` }, { quoted: msg });
@@ -329,7 +328,7 @@ Semoga betah di keluarga anime ini ♡
 
                         setTimeout(() => {
                             delete searchSessions[sentMsg.key.id];
-                        }, 120000); // Hapus sesi setelah 2 menit
+                        }, 120000);
                     }
                 } catch (err) {
                     console.error('Error Search Music:', err);
@@ -404,7 +403,7 @@ Semoga betah di keluarga anime ini ♡
                 text.toLowerCase() === '!help' ||
                 text.toLowerCase() === '.help'
             ) {
-                let menuText = `🤖 *DAFTAR FITUR BOT A.PA* 🤖
+                let menuText = `🤖 *DAFTAR FITUR BOT A.P.A* 🤖
 
 Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan:
 
@@ -421,16 +420,12 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 📥 *MULTI-PLATFORM DOWNLOADER*
 Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomatis (+25 XP)!`;
 
-                if (from === GROUP_ANOTHER) {
-                    menuText += `\n\n✂️ *FITUR MULTIMEDIA KHUSUS*\n▫️ \`.bg\` — Hapus latar belakang foto.\n▫️ \`.hd\` — Jernihkan foto jadi HD.`;
-                }
-
                 await sock.sendMessage(from, { text: menuText, mentions: [userJid] }, { quoted: msg });
                 return;
             }
 
             // =========================================================================
-            // E. FITUR GROQ AI (AKTIF DI 2 GRUP UTAMA)
+            // E. FITUR GROQ AI
             // =========================================================================
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
