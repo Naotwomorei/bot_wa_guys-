@@ -14,7 +14,7 @@ const scraper = require('./scraper');
 const GROUP_LIMITED = '120363426460671438@g.us'; // Grup Utama (Obrolan & Downloader Standar)
 const GROUP_ANOTHER = '120363430375282152@g.us'; // Grup Khusus Multimedia (BG Remover & HD Foto)
 
-// 🎯 DAFTAR NOMOR VIP (Bisa akses bot dimanapun / chat pribadi / luar grup)
+// 🎯 DAFTAR NOMOR VIP (Hanya nomor-nomor ini yang bisa memerintah bot)
 const VIP_USERS = [
     '6285831157623@s.whatsapp.net', // Nomor kamu
     '6283875433777@s.whatsapp.net'  // Nomor teman kamu
@@ -90,7 +90,7 @@ async function startBot() {
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & STABIL (VIP & ALL FEATURES READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & STABIL (STRICT GROUP & VIP ONLY)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -104,7 +104,7 @@ async function startBot() {
     });
 
     // =========================================================================
-    // 1. FITUR WELCOME MESSAGE (Berlaku di Semua Grup Terdaftar)
+    // 1. FITUR WELCOME MESSAGE (Berlaku di 2 Grup Terdaftar)
     // =========================================================================
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
@@ -168,42 +168,19 @@ Semoga betah di keluarga anime ini ♡
                          msg.message.extendedTextMessage?.text || 
                          msg.message.imageMessage?.caption || '';
 
-            // =========================================================================
-            // A. FITUR CEK LIST GRUP (Bisa diketik di CHAT PRIBADI bot)
-            // =========================================================================
-            if (!from.endsWith('@g.us') && (text.toLowerCase() === '.listgrup' || text.toLowerCase() === '.mygroups')) {
-                try {
-                    const fetchedGroups = await sock.groupFetchAllParticipating();
-                    const groupsArray = Object.values(fetchedGroups);
+            // 🔒 FILTER UTAMA 1: Bot HANYA merespons jika berasal dari 2 Grup Terdaftar saja!
+            // Chat pribadi (DM) / grup lain di luar ini akan diabaikan 100% (tidak dihitung XP, tidak merespons command)
+            if (from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
 
-                    if (groupsArray.length === 0) {
-                        await sock.sendMessage(from, { text: '❌ Bot belum bergabung di grup manapun.' }, { quoted: msg });
-                        return;
-                    }
-
-                    let responseText = `📋 *DAFTAR GRUP WHATSAPP BOT* (${groupsArray.length} Grup):\n\n`;
-
-                    groupsArray.forEach((group, index) => {
-                        responseText += `${index + 1}. *${group.subject}*\n`;
-                        responseText += `   🆔 ID: \`${group.id}\`\n\n`;
-                    });
-
-                    await sock.sendMessage(from, { text: responseText }, { quoted: msg });
-                } catch (err) {
-                    console.error('Gagal mengambil daftar grup:', err);
-                    await sock.sendMessage(from, { text: '⚠️ Terjadi kesalahan saat mengambil daftar grup.' }, { quoted: msg });
-                }
-                return;
-            }
-
-            // 🔒 FILTER AKSES UTAMA (MULTI-GRUP & VIP WHITELIST)
+            // 🔒 FILTER UTAMA 2: Perintah/Fitur Bot (seperti .play, .bg, .hd, .menu, dll) 
+            // HANYA bisa dijalankan oleh nomor VIP (Kamu & Temanmu). 
+            // Member lain di grup tetap bisa ngobrol biasa tanpa error.
             const isVipUser = VIP_USERS.includes(userJid);
-            const isPrivateChat = !from.endsWith('@g.us');
 
-            // Jika bukan user VIP, bukan chat pribadi, dan bukan dari grup terdaftar -> abaikan pesan
-            if (!isVipUser && !isPrivateChat && from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
+            // Jika bukan user VIP, abaikan semua command dan hentikan proses di sini
+            if (!isVipUser) return;
 
-            // 🚫 FILTER 1: Jika pesan berupa Stiker, abaikan perhitungan XP
+            // 🚫 FILTER 3: Jika pesan berupa Stiker, abaikan
             const isSticker = msg.message.stickerMessage;
             if (isSticker) return;
 
@@ -211,7 +188,7 @@ Semoga betah di keluarga anime ini ♡
             // B1. FITUR BACKGROUND REMOVER (.bg)
             // =========================================================================
             const cmd = text.toLowerCase().trim();
-            if ((from === GROUP_ANOTHER || isPrivateChat) && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
+            if (from === GROUP_ANOTHER && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
@@ -251,7 +228,7 @@ Semoga betah di keluarga anime ini ♡
                     if (!response.ok) {
                         const errBody = await response.text();
                         console.error('RemoveBG API Error Response:', errBody);
-                        await sock.sendMessage(from, { text: `❌ Gagal memproses background dari server Remove.bg. Periksa kembali API Key kamu.` }, { quoted: msg });
+                        await sock.sendMessage(from, { text: `❌ Gagal memproses background dari server Remove.bg.` }, { quoted: msg });
                         return;
                     }
 
@@ -275,7 +252,7 @@ Semoga betah di keluarga anime ini ♡
             // =========================================================================
             // B2. FITUR HD / UPSCALE (.hd)
             // =========================================================================
-            if ((from === GROUP_ANOTHER || isPrivateChat) && (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale'))) {
+            if (from === GROUP_ANOTHER && (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
@@ -380,7 +357,6 @@ Semoga betah di keluarga anime ini ♡
                             if (resData && resData.status && resData.result?.downloads?.[0]?.url) {
                                 const audioUrl = resData.result.downloads[0].url;
 
-                                // Ambil lirik dari API publik yang aman
                                 let lirikLagu = "Lirik tidak ditemukan.";
                                 try {
                                     const lyricRes = await fetch(`https://api.vkrdev.eu.org/api/search/lyrics?query=${encodeURIComponent(selectedTrack.title)}`);
@@ -392,18 +368,16 @@ Semoga betah di keluarga anime ini ♡
                                     lirikLagu = `Lirik untuk "${selectedTrack.title}" tidak tersedia secara publik.`;
                                 }
 
-                                // Kirim Lirik terlebih dahulu
                                 await sock.sendMessage(from, { 
-                                    text: `🎶 *${selectedTrack.title}*\n\n${lirikLagu}\n\n*[Source: API Lirik]*`,
+                                    text: `🎶 *${selectedTrack.title}*\n\n${lirikLagu}`,
                                     mentions: [userJid]
                                 }, { quoted: msg });
 
-                                // Kirim Audio / Musiknya
                                 await sock.sendMessage(from, { 
                                     audio: { url: audioUrl }, 
                                     mimetype: 'audio/mp4',
                                     ptt: false,
-                                    caption: `✅ Berhasil mengunduh *${selectedTrack.title}*\n👤 Diminta oleh: @${userJid.split('@')[0]}`
+                                    caption: `✅ Berhasil mengunduh *${selectedTrack.title}*`
                                 }, { quoted: msg });
 
                                 await tambahXP(sock, from, userJid, 25, msg);
@@ -413,7 +387,6 @@ Semoga betah di keluarga anime ini ♡
                             }
                         } catch (err) {
                             console.error('Error Download Selected Music:', err);
-                            await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan saat memproses unduhan musik.` }, { quoted: msg });
                         }
                         return;
                     }
@@ -431,7 +404,7 @@ Semoga betah di keluarga anime ini ♡
                 text.toLowerCase() === '!help' ||
                 text.toLowerCase() === '.help'
             ) {
-                let menuText = `🤖 *DAFTAR FITUR BOT A.P.A* 🤖
+                let menuText = `🤖 *DAFTAR FITUR BOT A.PA* 🤖
 
 Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gunakan:
 
@@ -448,20 +421,16 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 📥 *MULTI-PLATFORM DOWNLOADER*
 Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomatis (+25 XP)!`;
 
-                if (from === GROUP_ANOTHER || isPrivateChat) {
+                if (from === GROUP_ANOTHER) {
                     menuText += `\n\n✂️ *FITUR MULTIMEDIA KHUSUS*\n▫️ \`.bg\` — Hapus latar belakang foto.\n▫️ \`.hd\` — Jernihkan foto jadi HD.`;
                 }
 
-                await sock.sendMessage(from, { 
-                    text: menuText, 
-                    mentions: [userJid] 
-                }, { quoted: msg });
-                
+                await sock.sendMessage(from, { text: menuText, mentions: [userJid] }, { quoted: msg });
                 return;
             }
 
             // =========================================================================
-            // E. FITUR GROQ AI (AKTIF DI SEMUA GRUP)
+            // E. FITUR GROQ AI (AKTIF DI 2 GRUP UTAMA)
             // =========================================================================
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
@@ -541,7 +510,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                             audio: { url: audioUrl }, 
                             mimetype: 'audio/mp4',
                             ptt: false,
-                            caption: `🎵 *Berhasil!* Lagu *${audioTitle}* diunduh.\n👤 @${userJid.split('@')[0]}`
+                            caption: `🎵 *Berhasil!* Lagu *${audioTitle}* diunduh.`
                         }, { quoted: msg });
 
                         await tambahXP(sock, from, userJid, 25, msg);
@@ -601,7 +570,6 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                     }
                 } catch (err) {
                     console.error('Error Instagram Scraper:', err);
-                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada scraper Instagram.` }, { quoted: msg });
                 }
                 return;
             }
@@ -622,7 +590,6 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                     }
                 } catch (err) {
                     console.error('Error FB Scraper:', err);
-                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada scraper Facebook.` }, { quoted: msg });
                 }
                 return;
             }
@@ -640,7 +607,6 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                     }
                 } catch (err) {
                     console.error('Error Pinterest Scraper:', err);
-                    await sock.sendMessage(from, { text: `⚠️ Terjadi kesalahan pada scraper Pinterest.` }, { quoted: msg });
                 }
                 return;
             }
@@ -683,7 +649,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
             }
 
             // =========================================================================
-            // K. COOLDOWN XP CHAT BIASA (+10 XP)
+            // K. COOLDOWN XP KHUSUS VIP (+10 XP)
             // =========================================================================
             const now = Date.now();
             const cooldownTime = 3000; 
