@@ -11,7 +11,7 @@ const scraper = require('./scraper');
 // =========================================================================
 // 📌 KONFIGURASI MULTI-GRUP & WHITELIST NOMOR VIP
 // =========================================================================
-const GROUP_LIMITED = '120363426460671438@g.us'; // Grup Utama (Obrolan & Downloader Standar)
+const GROUP_LIMITED = '120363413666355189@g.us'; // Grup Utama (Obrolan & Downloader Standar)
 const GROUP_ANOTHER = '120363430375282152@g.us'; // Grup Khusus Multimedia (BG Remover & HD Foto)
 
 // 🎯 DAFTAR NOMOR VIP (Bisa akses bot dimanapun / chat pribadi / luar grup)
@@ -104,11 +104,21 @@ async function startBot() {
     });
 
     // =========================================================================
-    // 1. FITUR WELCOME MESSAGE (Berlaku di Semua Grup Terdaftar)
+    // 1. FITUR WELCOME MESSAGE & LOG AKTIVITAS GRUP (KICK / ADMIN / ADD)
     // =========================================================================
     sock.ev.on('group-participants.update', async (update) => {
-        const { id, participants, action } = update;
+        const { id, participants, action, author } = update;
 
+        // Cetak log aktivitas grup ke terminal (berguna melacak siapa yang ngeluarin/ngangkat admin)
+        console.log(`[GROUP LOG] Grup: ${id} \vert{} Aksi:${action} | Target: ${participants.join(', ')} \vert{} Author/Pelaku:${author}`);
+
+        if (action === 'remove') {
+            console.log(`🚨 PEMBERITAHUAN: ${participants.join(', ')} telah DIKELUARKAN dari grup oleh${author}`);
+        } else if (action === 'promote') {
+            console.log(`⭐ PEMBERITAHUAN: ${participants.join(', ')} telah DIANGKAT JADI ADMIN oleh${author}`);
+        }
+
+        // Pesan Sambutan (Welcome)
         if ((id === GROUP_LIMITED || id === GROUP_ANOTHER) && action === 'add') {
             for (const participant of participants) {
                 const userJid = typeof participant === 'string' ? participant : (participant.id || participant.jid || '');
