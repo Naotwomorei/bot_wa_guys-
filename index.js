@@ -5,24 +5,18 @@ const path = require('path');
 const FormData = require('form-data');
 const ytSearch = require('yt-search');
 
-// Panggil Master Scraper dari file scraper.js
 const scraper = require('./scraper');
 
-// =========================================================================
-// 📌 KONFIGURASI MULTI-GRUP & WHITELIST NOMOR VIP
-// =========================================================================
-const GROUP_LIMITED = '120363413666355189@g.us'; // Grup Utama (Obrolan & Downloader Standar)
-const GROUP_ANOTHER = '120363430375282152@g.us'; // Grup Khusus Multimedia (BG Remover & HD Foto)
+const GROUP_LIMITED = '120363413666355189@g.us';
+const GROUP_ANOTHER = '120363430375282152@g.us';
 
-// 🎯 DAFTAR NOMOR VIP (Bisa akses bot dimanapun / chat pribadi / luar grup)
 const VIP_USERS = [
-    '6285831157623@s.whatsapp.net', // Nomor kamu
-    '6283875433777@s.whatsapp.net'  // Nomor teman kamu
+    '6285831157623@s.whatsapp.net',
+    '6283875433777@s.whatsapp.net'
 ];
 
 const DB_FILE = './database_leveling.json';
 
-// Baca atau Buat Database JSON Otomatis
 let userDB = {};
 if (fs.existsSync(DB_FILE)) {
     userDB = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
@@ -30,18 +24,13 @@ if (fs.existsSync(DB_FILE)) {
     fs.writeFileSync(DB_FILE, JSON.stringify({}, null, 2));
 }
 
-// Fungsi Simpan Data ke File JSON
 function saveDB() {
     fs.writeFileSync(DB_FILE, JSON.stringify(userDB, null, 2));
 }
 
-// Memory / Objek Sementara untuk Cooldown Chat & Sesi Lagu (.play)
 const cooldownXP = {};
 const searchSessions = {};
 
-// =========================================================================
-// 🎮 LOGIKA EFEK LEVELING & XP
-// =========================================================================
 async function tambahXP(sock, from, userJid, jumlahXP, quotedMsg) {
     if (!userDB[userJid]) {
         userDB[userJid] = { xp: 0, level: 1 };
@@ -50,7 +39,6 @@ async function tambahXP(sock, from, userJid, jumlahXP, quotedMsg) {
     userDB[userJid].xp += jumlahXP;
     let xpDibutuhkan = userDB[userJid].level * 100;
 
-    // Cek Apakah Pengguna Level Up!
     if (userDB[userJid].xp >= xpDibutuhkan) {
         userDB[userJid].level += 1;
         userDB[userJid].xp -= xpDibutuhkan;
@@ -78,7 +66,7 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    // Fitur Pairing Code otomatis jika belum terhubung
+    // 🔥 FITUR PAIRING CODE MURNI (TANPA QR CODE)
     if (!sock.authState.creds.registered) {
         const readline = require('readline').createInterface({
             input: process.stdin,
@@ -122,9 +110,7 @@ async function startBot() {
         }
     });
 
-    // =========================================================================
-    // 1. FITUR WELCOME MESSAGE & LOG AKTIVITAS GRUP (KICK / ADMIN / ADD)
-    // =========================================================================
+    // 1. FITUR WELCOME MESSAGE & LOG AKTIVITAS GRUP
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action, author } = update;
 
@@ -136,7 +122,6 @@ async function startBot() {
             console.log(`⭐ PEMBERITAHUAN: ${participants.join(', ')} telah DIANGKAT JADI ADMIN oleh${author}`);
         }
 
-        // Pesan Sambutan (Welcome)
         if ((id === GROUP_LIMITED || id === GROUP_ANOTHER) && action === 'add') {
             for (const participant of participants) {
                 const userJid = typeof participant === 'string' ? participant : (participant.id || participant.jid || '');
@@ -181,9 +166,7 @@ Semoga betah di keluarga anime ini ♡
         }
     });
 
-    // =========================================================================
     // 2. FITUR UTAMA BOT (MESSAGES UPSERT)
-    // =========================================================================
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             const msg = messages[0];
@@ -196,7 +179,6 @@ Semoga betah di keluarga anime ini ♡
                        msg.message.extendedTextMessage?.text || 
                        msg.message.imageMessage?.caption || '';
 
-            // A. FITUR CEK LIST GRUP
             if (!from.endsWith('@g.us') && (text.toLowerCase() === '.listgrup' || text.toLowerCase() === '.mygroups')) {
                 try {
                     const fetchedGroups = await sock.groupFetchAllParticipating();
@@ -221,7 +203,6 @@ Semoga betah di keluarga anime ini ♡
                 return;
             }
 
-            // 🔒 FILTER AKSES UTAMA
             const isVipUser = VIP_USERS.includes(userJid);
             const isPrivateChat = !from.endsWith('@g.us');
 
@@ -232,7 +213,7 @@ Semoga betah di keluarga anime ini ♡
 
             const cmd = text.toLowerCase().trim();
 
-            // B1. BACKGROUND REMOVER (.bg)
+            // .bg
             if ((from === GROUP_ANOTHER || isPrivateChat) && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
@@ -291,7 +272,7 @@ Semoga betah di keluarga anime ini ♡
                 return;
             }
 
-            // B2. HD / UPSCALE (.hd)
+            // .hd
             if ((from === GROUP_ANOTHER || isPrivateChat) && (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
@@ -323,7 +304,7 @@ Semoga betah di keluarga anime ini ♡
                 return;
             }
 
-            // C. FITUR INTERAKTIF .PLAY & REPLY PILIHAN NOMOR
+            // .play
             if (text.toLowerCase().startsWith('.play') || text.toLowerCase().startsWith('!play')) {
                 const queryLagu = text.slice(5).trim();
                 if (!queryLagu) {
@@ -432,7 +413,7 @@ Semoga betah di keluarga anime ini ♡
 
             const cleanUrl = text.match(/(https?:\/\/[^\s]+)/g)?.[0];
 
-            // D. COMMAND MENU / BANTUAN
+            // .menu
             if (
                 text.toLowerCase() === '!menu' || 
                 text.toLowerCase() === '.menu' || 
@@ -468,7 +449,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                 return;
             }
 
-            // E. GROQ AI
+            // Groq AI
             const isCommandMeta = text.toLowerCase().startsWith('.meta') || text.toLowerCase().startsWith('.ai');
             const isTaggedBot = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
 
@@ -530,7 +511,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                 return;
             }
 
-            // F. DOWNLOADER YOUTUBE
+            // Downloader YouTube
             if (cleanUrl && (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be'))) {
                 await sock.sendMessage(from, { text: `⏳ *[YouTube MP3]*\nSabar bree, bot lagi proses convert audio...`, mentions: [userJid] }, { quoted: msg });
 
@@ -558,7 +539,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                 return;
             }
 
-            // G. DOWNLOADER TIKTOK
+            // Downloader TikTok
             if (cleanUrl && cleanUrl.includes('tiktok.com')) {
                 await sock.sendMessage(from, { text: '⏳ *[TikTok Downloader]* Sedang mengunduh...' }, { quoted: msg });
                 try {
@@ -581,7 +562,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                 return;
             }
 
-            // H. DOWNLOADER INSTAGRAM
+            // Downloader Instagram
             if (cleanUrl && cleanUrl.includes('instagram.com')) {
                 await sock.sendMessage(from, { text: `⏳ *[Instagram Downloader]* Sedang memproses...`, mentions: [userJid] }, { quoted: msg });
                 try {
@@ -606,7 +587,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                 return;
             }
 
-            // I. DOWNLOADER FACEBOOK & PINTEREST
+            // Downloader FB & Pinterest
             if (cleanUrl && (cleanUrl.includes('facebook.com') || cleanUrl.includes('fb.watch'))) {
                 await sock.sendMessage(from, { text: `⏳ *[Facebook Downloader]* Memproses...`, mentions: [userJid] }, { quoted: msg });
                 try {
@@ -643,7 +624,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                 return;
             }
 
-            // J. LEVEL & LEADERBOARD
+            // Level & Leaderboard
             if (text.toLowerCase() === '!level' || text.toLowerCase() === '.level') {
                 const userData = userDB[userJid] || { xp: 0, level: 1 };
                 const targetXP = userData.level * 100;
@@ -678,7 +659,7 @@ Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomati
                 return;
             }
 
-            // K. COOLDOWN XP
+            // Cooldown XP
             const now = Date.now();
             const cooldownTime = 3000; 
 
