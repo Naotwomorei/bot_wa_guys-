@@ -97,7 +97,7 @@ async function startBot() {
         const { connection, lastDisconnect } = update;
         
         if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & STABIL (VIP & ALL FEATURES READY)!');
+            console.log('✅ BOT BERHASIL TERHUBUNG & STABIL (GROUP ONLY MODE)!');
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -166,55 +166,35 @@ Semoga betah di keluarga anime ini ♡
         }
     });
 
-    // 2. FITUR UTAMA BOT (MESSAGES UPSERT)
+    // 2. FITUR UTAMA BOT (MESSAGES UPSERT - KHUSUS GRUP)
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             const msg = messages[0];
             if (!msg.message || msg.key.fromMe) return;
 
             const from = msg.key.remoteJid;
+            
+            // ❌ ABAIKAN SEMUA PESAN DARI CHAT PRIBADI (DM)
+            if (!from.endsWith('@g.us')) return;
+
             const userJid = msg.key.participant || msg.key.remoteJid;
             
             const text = msg.message.conversation || 
                        msg.message.extendedTextMessage?.text || 
                        msg.message.imageMessage?.caption || '';
 
-            if (!from.endsWith('@g.us') && (text.toLowerCase() === '.listgrup' || text.toLowerCase() === '.mygroups')) {
-                try {
-                    const fetchedGroups = await sock.groupFetchAllParticipating();
-                    const groupsArray = Object.values(fetchedGroups);
-
-                    if (groupsArray.length === 0) {
-                        await sock.sendMessage(from, { text: '❌ Bot belum bergabung di grup manapun.' }, { quoted: msg });
-                        return;
-                    }
-
-                    let responseText = `📋 *DAFTAR GRUP WHATSAPP BOT* (${groupsArray.length} Grup):\n\n`;
-                    groupsArray.forEach((group, index) => {
-                        responseText += `${index + 1}. *${group.subject}*\n`;
-                        responseText += `   🆔 ID: \`${group.id}\`\n\n`;
-                    });
-
-                    await sock.sendMessage(from, { text: responseText }, { quoted: msg });
-                } catch (err) {
-                    console.error('Gagal mengambil daftar grup:', err);
-                    await sock.sendMessage(from, { text: '⚠️ Terjadi kesalahan saat mengambil daftar grup.' }, { quoted: msg });
-                }
-                return;
-            }
-
             const isVipUser = VIP_USERS.includes(userJid);
-            const isPrivateChat = !from.endsWith('@g.us');
 
-            if (!isVipUser && !isPrivateChat && from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
+            // Validasi grup terdaftar (kecuali VIP)
+            if (!isVipUser && from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
 
             const isSticker = msg.message.stickerMessage;
             if (isSticker) return;
 
             const cmd = text.toLowerCase().trim();
 
-            // .bg
-            if ((from === GROUP_ANOTHER || isPrivateChat) && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
+            // .bg (Hanya di grup tertentu atau grup yang diizinkan)
+            if ((from === GROUP_ANOTHER) && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
@@ -273,7 +253,7 @@ Semoga betah di keluarga anime ini ♡
             }
 
             // .hd
-            if ((from === GROUP_ANOTHER || isPrivateChat) && (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale'))) {
+            if ((from === GROUP_ANOTHER) && (cmd.startsWith('.hd') || cmd.startsWith('!hd') || cmd.startsWith('.upscale'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
                 if (!imageMessage) {
@@ -437,7 +417,7 @@ Halo @${userJid.split('@')[0]}! Berikut adalah daftar perintah yang bisa kamu gu
 📥 *MULTI-PLATFORM DOWNLOADER*
 Kirim link YouTube MP3, TikTok, IG, FB, atau Pinterest untuk unduh media otomatis (+25 XP)!`;
 
-                if (from === GROUP_ANOTHER || isPrivateChat) {
+                if (from === GROUP_ANOTHER) {
                     menuText += `\n\n✂️ *FITUR MULTIMEDIA KHUSUS*\n▫️ \`.bg\` — Hapus latar belakang foto.\n▫️ \`.hd\` — Jernihkan foto jadi HD.`;
                 }
 
