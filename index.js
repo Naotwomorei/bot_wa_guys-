@@ -73,7 +73,7 @@ async function startBot() {
     const sock = makeWASocket({
         auth: state,
         logger: pino({ level: 'silent' }),
-        printQRInTerminal: true
+        printQRInTerminal: false
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -122,33 +122,7 @@ async function startBot() {
             }
         }
     });
-
-    sock.ev.on('creds.update', saveCreds);
-
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        
-        if (qr) {
-            const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
-            console.log('\n======================================================');
-            console.log('🔗 BUKA LINK INI DI BROWSER BUAT SCAN QR CODE:');
-            console.log(qrImageUrl);
-            console.log('======================================================\n');
-        }
-
-        if (connection === 'open') {
-            console.log('✅ BOT BERHASIL TERHUBUNG & STABIL (VIP & ALL FEATURES READY)!');
-        } else if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
-            console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
-            
-            if (shouldReconnect) {
-                startBot();
-            } else {
-                console.log('⚠️ Sesi terhapus atau logout. Silakan hapus folder auth_info dan scan QR baru.');
-            }
-        }
-    });
+}
 
     // =========================================================================
     // 1. FITUR WELCOME MESSAGE & LOG AKTIVITAS GRUP (KICK / ADMIN / ADD)
