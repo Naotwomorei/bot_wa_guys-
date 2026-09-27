@@ -73,7 +73,54 @@ async function startBot() {
     const sock = makeWASocket({
         auth: state,
         logger: pino({ level: 'silent' }),
-        printQRInTerminal: false
+        printQRInTerminal: true
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    // Fitur Pairing Code otomatis jika belum terhubung
+    if (!sock.authState.creds.registered) {
+        const readline = require('readline').createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+        
+        await new Promise(resolve => {
+            readline.question('\n📱 MASUKKAN NOMOR HP BOT KAMU (Contoh: 628xxxxxxxxx): ', async (phoneNumber) => {
+                readline.close();
+                phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
+                
+                // Tunggu sebentar agar socket siap
+                setTimeout(async () => {
+                    try {
+                        const code = await sock.requestPairingCode(phoneNumber);
+                        console.log('\n======================================================');
+                        console.log(`🔑 KODE PAIRING WHATSAPP KAMU: ${code?.match(/.{1,4}/g)?.join('-')}`);
+                        console.log('======================================================\n');
+                    } catch (err) {
+                        console.error('Gagal mendapatkan pairing code:', err);
+                    }
+                    resolve();
+                }, 3000);
+            });
+        });
+    }
+
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect } = update;
+        
+        if (connection === 'open') {
+            console.log('✅ BOT BERHASIL TERHUBUNG & STABIL (VIP & ALL FEATURES READY)!');
+        } else if (connection === 'close') {
+            const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
+            console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
+            
+            if (shouldReconnect) {
+                startBot();
+            } else {
+                console.log('⚠️ Sesi terhapus atau logout. Silakan hapus folder auth_info dan pairing ulang.');
+            }
+        }
     });
 
     sock.ev.on('creds.update', saveCreds);
