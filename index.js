@@ -170,12 +170,14 @@ Semoga betah di keluarga anime ini ♡
                        msg.message.extendedTextMessage?.text || 
                        msg.message.imageMessage?.caption || '';
 
-            // 🔥 KHUSUS PERINTAH .listgrup / .mygroups DI DM (IZINKAN KHUSUS VIP ATAU SIAPA SAJA)
+            // 🔍 LOG PELACAK PESAN MASUK
+            console.log(`[PESAN MASUK] Dari: ${from} \vert{} Teks:${text}`);
+
+            // 🔥 KHUSUS PERINTAH .listgrup / .mygroups DI DM
             const isVipUser = VIP_USERS.includes(userJid);
             const isPrivateChat = !from.endsWith('@g.us');
 
             if (isPrivateChat && (text.toLowerCase() === '.listgrup' || text.toLowerCase() === '.mygroups')) {
-                // Opsional: Batasi hanya untuk VIP user saja yang boleh cek list grup via DM demi keamanan
                 if (!isVipUser) {
                     await sock.sendMessage(from, { text: '❌ Perintah ini hanya bisa diakses oleh VIP user.' }, { quoted: msg });
                     return;
