@@ -66,7 +66,6 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    // 🔥 FITUR PAIRING CODE MURNI (TANPA QR CODE)
     if (!sock.authState.creds.registered) {
         const readline = require('readline').createInterface({
             input: process.stdin,
@@ -110,17 +109,10 @@ async function startBot() {
         }
     });
 
-    // 1. FITUR WELCOME MESSAGE & LOG AKTIVITAS GRUP
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action, author } = update;
 
         console.log(`[GROUP LOG] Grup: ${id} \vert{} Aksi:${action} | Target: ${participants.join(', ')} \vert{} Author/Pelaku:${author}`);
-
-        if (action === 'remove') {
-            console.log(`🚨 PEMBERITAHUAN: ${participants.join(', ')} telah DIKELUARKAN dari grup oleh${author}`);
-        } else if (action === 'promote') {
-            console.log(`⭐ PEMBERITAHUAN: ${participants.join(', ')} telah DIANGKAT JADI ADMIN oleh${author}`);
-        }
 
         if ((id === GROUP_LIMITED || id === GROUP_ANOTHER) && action === 'add') {
             for (const participant of participants) {
@@ -166,24 +158,54 @@ Semoga betah di keluarga anime ini ♡
         }
     });
 
-    // 2. FITUR UTAMA BOT (MESSAGES UPSERT - KHUSUS GRUP)
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             const msg = messages[0];
             if (!msg.message || msg.key.fromMe) return;
 
             const from = msg.key.remoteJid;
-            
-            // ❌ ABAIKAN SEMUA PESAN DARI CHAT PRIBADI (DM)
-            if (!from.endsWith('@g.us')) return;
-
             const userJid = msg.key.participant || msg.key.remoteJid;
             
             const text = msg.message.conversation || 
                        msg.message.extendedTextMessage?.text || 
                        msg.message.imageMessage?.caption || '';
 
+            // 🔥 KHUSUS PERINTAH .listgrup / .mygroups DI DM (IZINKAN KHUSUS VIP ATAU SIAPA SAJA)
             const isVipUser = VIP_USERS.includes(userJid);
+            const isPrivateChat = !from.endsWith('@g.us');
+
+            if (isPrivateChat && (text.toLowerCase() === '.listgrup' || text.toLowerCase() === '.mygroups')) {
+                // Opsional: Batasi hanya untuk VIP user saja yang boleh cek list grup via DM demi keamanan
+                if (!isVipUser) {
+                    await sock.sendMessage(from, { text: '❌ Perintah ini hanya bisa diakses oleh VIP user.' }, { quoted: msg });
+                    return;
+                }
+
+                try {
+                    const fetchedGroups = await sock.groupFetchAllParticipating();
+                    const groupsArray = Object.values(fetchedGroups);
+
+                    if (groupsArray.length === 0) {
+                        await sock.sendMessage(from, { text: '❌ Bot belum bergabung di grup manapun.' }, { quoted: msg });
+                        return;
+                    }
+
+                    let responseText = `📋 *DAFTAR GRUP WHATSAPP BOT* (${groupsArray.length} Grup):\n\n`;
+                    groupsArray.forEach((group, index) => {
+                        responseText += `${index + 1}. *${group.subject}*\n`;
+                        responseText += `   🆔 ID: \`${group.id}\`\n\n`;
+                    });
+
+                    await sock.sendMessage(from, { text: responseText }, { quoted: msg });
+                } catch (err) {
+                    console.error('Gagal mengambil daftar grup:', err);
+                    await sock.sendMessage(from, { text: '⚠️ Terjadi kesalahan saat mengambil daftar grup.' }, { quoted: msg });
+                }
+                return;
+            }
+
+            // ❌ ABAIKAN SEMUA PESAN LAIN DARI CHAT PRIBADI (DM)
+            if (isPrivateChat) return;
 
             // Validasi grup terdaftar (kecuali VIP)
             if (!isVipUser && from !== GROUP_LIMITED && from !== GROUP_ANOTHER) return;
@@ -193,7 +215,7 @@ Semoga betah di keluarga anime ini ♡
 
             const cmd = text.toLowerCase().trim();
 
-            // .bg (Hanya di grup tertentu atau grup yang diizinkan)
+            // .bg
             if ((from === GROUP_ANOTHER) && (cmd.startsWith('.bg') || cmd.startsWith('!bg'))) {
                 const imageMessage = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
