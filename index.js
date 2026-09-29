@@ -66,22 +66,6 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    // 🔥 FITUR PAIRING CODE OTOMATIS (TANPA READLINE TERMINAL YANG BIKIN NYANGKUT)
-    if (!sock.authState.creds.registered) {
-        const phoneNumber = "6281374692461";
-        
-        setTimeout(async () => {
-            try {
-                const code = await sock.requestPairingCode(phoneNumber);
-                console.log('\n======================================================');
-                console.log(`🔑 KODE PAIRING WHATSAPP KAMU: ${code?.match(/.{1,4}/g)?.join('-')}`);
-                console.log('======================================================\n');
-            } catch (err) {
-                console.error('Gagal mendapatkan pairing code:', err);
-            }
-        }, 3000);
-    }
-
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         
@@ -98,6 +82,22 @@ async function startBot() {
             }
         }
     });
+
+    // 🔥 FITUR PAIRING CODE OTOMATIS (JEDA 5 DETIK AGAR SOCKET SIAP)
+    if (!sock.authState.creds.registered) {
+        const phoneNumber = "6281374692461";
+        
+        setTimeout(async () => {
+            try {
+                const code = await sock.requestPairingCode(phoneNumber);
+                console.log('\n======================================================');
+                console.log(`🔑 KODE PAIRING WHATSAPP KAMU: ${code?.match(/.{1,4}/g)?.join('-')}`);
+                console.log('======================================================\n');
+            } catch (err) {
+                console.error('Gagal mendapatkan pairing code:', err);
+            }
+        }, 5000);
+    }
 
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action, author } = update;
