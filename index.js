@@ -66,30 +66,20 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
+    // 🔥 FITUR PAIRING CODE OTOMATIS (TANPA READLINE TERMINAL YANG BIKIN NYANGKUT)
     if (!sock.authState.creds.registered) {
-        const readline = require('readline').createInterface({
-            input: process.stdin,
-            output: process.stdout
-        });
+        const phoneNumber = "6281374692461";
         
-        await new Promise(resolve => {
-            readline.question('\n📱 MASUKKAN NOMOR HP BOT KAMU (Contoh: 628xxxxxxxxx): ', async (phoneNumber) => {
-                readline.close();
-                phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-                
-                setTimeout(async () => {
-                    try {
-                        const code = await sock.requestPairingCode(phoneNumber);
-                        console.log('\n======================================================');
-                        console.log(`🔑 KODE PAIRING WHATSAPP KAMU: ${code?.match(/.{1,4}/g)?.join('-')}`);
-                        console.log('======================================================\n');
-                    } catch (err) {
-                        console.error('Gagal mendapatkan pairing code:', err);
-                    }
-                    resolve();
-                }, 3000);
-            });
-        });
+        setTimeout(async () => {
+            try {
+                const code = await sock.requestPairingCode(phoneNumber);
+                console.log('\n======================================================');
+                console.log(`🔑 KODE PAIRING WHATSAPP KAMU: ${code?.match(/.{1,4}/g)?.join('-')}`);
+                console.log('======================================================\n');
+            } catch (err) {
+                console.error('Gagal mendapatkan pairing code:', err);
+            }
+        }, 3000);
     }
 
     sock.ev.on('connection.update', (update) => {
