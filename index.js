@@ -66,11 +66,24 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', (update) => {
+    sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
         
         if (connection === 'open') {
             console.log('✅ BOT BERHASIL TERHUBUNG & STABIL (GROUP ONLY MODE)!');
+
+            // 🔥 PAIRING CODE DI-REQUEST AMAN SAAT KONEKSI BENAR-BENAR OPEN
+            if (!sock.authState.creds.registered) {
+                try {
+                    const phoneNumber = "6281374692461";
+                    const code = await sock.requestPairingCode(phoneNumber);
+                    console.log('\n======================================================');
+                    console.log(`🔑 KODE PAIRING WHATSAPP KAMU: ${code?.match(/.{1,4}/g)?.join('-')}`);
+                    console.log('======================================================\n');
+                } catch (err) {
+                    console.error('Gagal mendapatkan pairing code:', err);
+                }
+            }
         } else if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== 401;
             console.log('🔄 Koneksi terputus, mencoba menghubungkan kembali:', shouldReconnect);
@@ -82,22 +95,6 @@ async function startBot() {
             }
         }
     });
-
-    // 🔥 FITUR PAIRING CODE OTOMATIS (JEDA 5 DETIK AGAR SOCKET SIAP)
-    if (!sock.authState.creds.registered) {
-        const phoneNumber = "6281374692461";
-        
-        setTimeout(async () => {
-            try {
-                const code = await sock.requestPairingCode(phoneNumber);
-                console.log('\n======================================================');
-                console.log(`🔑 KODE PAIRING WHATSAPP KAMU: ${code?.match(/.{1,4}/g)?.join('-')}`);
-                console.log('======================================================\n');
-            } catch (err) {
-                console.error('Gagal mendapatkan pairing code:', err);
-            }
-        }, 5000);
-    }
 
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action, author } = update;
